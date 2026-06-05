@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
 Additional workspace documentation is available in the `documentation/` folder:
 
 - [documentation/README.md](../documentation/README.md) — top-level navigation
-- [documentation/migration_guide.md](../documentation/migration_guide.md) — version-to-version migration notes
+- [documentation/migration_guide.md](../documentation/migrations) — version-to-version migration notes
 
 ### Client docs
 
