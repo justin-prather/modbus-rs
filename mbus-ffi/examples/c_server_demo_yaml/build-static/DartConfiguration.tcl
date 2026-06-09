@@ -81,7 +81,7 @@ MemoryCheckCommandOptions:
 MemoryCheckSuppressionFile: 
 
 # Coverage
-CoverageCommand: /usr/bin/gcov
+CoverageCommand: /Library/Developer/CommandLineTools/usr/bin/gcov
 CoverageExtraFlags: -l
 
 # Testing options

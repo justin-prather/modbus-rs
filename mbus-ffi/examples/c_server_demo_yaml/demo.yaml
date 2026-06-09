@@ -1,11 +1,11 @@
 name: c_server_demo_yaml
 description: "YAML-driven Modbus TCP server with generated handler table"
 binary: c_server_demo_yaml
-rust_features: "c-server,network-tcp,coils,registers"
+rust_features: "c-server,network-tcp,coils,holding-registers,input-registers,discrete-inputs"
 
 codegen:
   config: mbus-ffi/examples/c_server_demo_yaml/mbus_server_app.example.yaml
-  header: target/mbus-ffi/include/mbus_server_app.h
+  header: mbus-ffi/examples/c_server_demo_yaml/mbus_server_app.h
 
 run:
   default_mode: server

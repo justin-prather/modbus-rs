@@ -129,7 +129,7 @@ fn cmd_gen_client_header(root: &Path, args: &[String]) -> Result<(), String> {
 
     let features_str;
     if let Some(feats) = &opts.features {
-        features_str = format!("c-client,{feats}");
+        features_str = feats.clone();
         build_args.push("--features");
         build_args.push(&features_str);
     } else {
@@ -328,7 +328,11 @@ fn build_one_demo(
         unsafe { std::env::set_var("MBUS_SERVER_APP_CONFIG", v) };
     }
 
-    let gen_args = vec!["--features".to_string(), features.to_string()];
+    let ffi_out_dir = demo.dir.join("build").join("ffi");
+    let gen_args = vec![
+        "--features".to_string(), features.to_string(),
+        "--out-dir".to_string(), ffi_out_dir.to_string_lossy().into_owned(),
+    ];
     cmd_gen_client_header(root, &gen_args)?;
 
     if config_abs.is_some() {
@@ -341,6 +345,11 @@ fn build_one_demo(
     } else {
         "build"
     };
+    let build_dir = demo.dir.join(build_name);
+    let cache_file = build_dir.join("CMakeCache.txt");
+    if cache_file.exists() {
+        let _ = std::fs::remove_file(cache_file);
+    }
     let static_flag = if opts.link_static {
         "-DMBUS_FFI_LINK_STATIC=ON"
     } else {

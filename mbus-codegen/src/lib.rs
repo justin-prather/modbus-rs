@@ -367,7 +367,7 @@ pub fn render_c_header(config: &ServerAppConfig) -> String {
     out.push_str("#define MBUS_SERVER_APP_H\n\n");
     out.push_str("#include <stdbool.h>\n");
     out.push_str("#include <stdint.h>\n");
-    out.push_str("#include \"modbus_rs_server.h\"\n\n");
+    out.push_str("#include \"modbus_rs.h\"\n\n");
     out.push_str("#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
 
     out.push_str("typedef enum MbusHookStatus {\n");

@@ -4,10 +4,10 @@ project(mbus_ffi_c_gateway_demo C)
 set(CMAKE_C_STANDARD 11)
 
 # Generated header lives under target/mbus-ffi/include
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../target/mbus-ffi/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/build/ffi/include)
 
 # Path to the Rust library (dev profile)
-set(RUST_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../target/debug")
+set(RUST_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/ffi/library")
 
 find_package(Threads REQUIRED)
 

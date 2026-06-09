@@ -492,7 +492,3 @@ mbus-async = { version = "0.14.0", path = "../mbus-async", features = [
     "input-registers",
 ] }
 anyhow = "1"
-
-[[example]]
-name = "dotnet_test_server"
-required-features = ["holding-registers", "input-registers"]

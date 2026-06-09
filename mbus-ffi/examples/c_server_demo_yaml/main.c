@@ -73,6 +73,10 @@ void mbus_pool_unlock(void)                { pthread_mutex_unlock(&s_server_pool
 void mbus_server_lock(MbusServerId id)     { (void)id; pthread_mutex_lock(&s_server_mutex);   }
 void mbus_server_unlock(MbusServerId id)   { (void)id; pthread_mutex_unlock(&s_server_mutex); }
 
+/* Stubs for client locks in case the library was built with c-client enabled */
+void mbus_client_lock(uint16_t id)         { (void)id; }
+void mbus_client_unlock(uint16_t id)       { (void)id; }
+
 /* =========================================================================
  * Application state
  * ========================================================================= */

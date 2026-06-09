@@ -30,7 +30,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "modbus_rs_gateway.h"
+#include "modbus_rs.h"
 
 #define UPSTREAM_PORT   5020
 #define DOWNSTREAM_PORT 15020
