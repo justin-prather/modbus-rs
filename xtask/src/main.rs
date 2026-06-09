@@ -31,27 +31,6 @@ fn run_step(program: &str, args: &[&str], cwd: &Path) -> Result<(), String> {
     }
 }
 
-fn run_step_with_env(
-    program: &str,
-    args: &[&str],
-    cwd: &Path,
-    env: &[(&str, &str)],
-) -> Result<(), String> {
-    let mut cmd = Command::new(program);
-    cmd.args(args).current_dir(cwd);
-    for (k, v) in env {
-        cmd.env(k, v);
-    }
-    let status = cmd
-        .status()
-        .map_err(|e| format!("failed to run {program}: {e}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("command failed: {} {}", program, args.join(" ")))
-    }
-}
-
 struct GenClientHeaderOpts {
     features: Option<String>,
     out_dir: PathBuf,
@@ -134,7 +113,7 @@ fn cmd_gen_client_header(root: &Path, args: &[String]) -> Result<(), String> {
     let profile = opts.profile.as_deref().unwrap_or("release");
 
     // Build mbus-ffi in selected mode & target
-    let mut build_args = vec!["build", "-p", "mbus-ffi"];
+    let mut build_args = vec!["rustc", "-p", "mbus-ffi"];
     if profile == "release" {
         build_args.push("--release");
     }
@@ -148,22 +127,26 @@ fn cmd_gen_client_header(root: &Path, args: &[String]) -> Result<(), String> {
         }
     }
 
-    if !is_bare_metal {
-        // Build as cdylib for standard OSes
-        build_args.push("--crate-type=cdylib");
-        build_args.push("--crate-type=staticlib");
-        build_args.push("--crate-type=rlib");
-    }
-
     let features_str;
     if let Some(feats) = &opts.features {
-        features_str = format!("c-client,{feats}");
+        features_str = feats.clone();
         build_args.push("--features");
         build_args.push(&features_str);
     } else {
         features_str = "full".to_string();
         build_args.push("--features");
         build_args.push(&features_str);
+    }
+
+    build_args.push("--");
+    if !is_bare_metal {
+        // Build as cdylib for standard OSes
+        build_args.push("--crate-type=cdylib");
+        build_args.push("--crate-type=staticlib");
+        build_args.push("--crate-type=rlib");
+    } else {
+        build_args.push("--crate-type=staticlib");
+        build_args.push("--crate-type=rlib");
     }
 
     println!(
@@ -334,22 +317,27 @@ fn build_one_demo(
         cmd_gen_server_app(root, &gen_args)?;
     }
 
-    // Step 2: compile Rust library.
+    // Step 2: generate C headers and compile Rust library.
     // Pass MBUS_SERVER_APP_CONFIG so build.rs can generate the server dispatcher.
     let config_abs: Option<String> = demo
         .codegen
         .as_ref()
         .map(|cg| root.join(&cg.config).to_string_lossy().into_owned());
-    let env_pair: Vec<(&str, &str)> = config_abs
-        .as_deref()
-        .map(|v| vec![("MBUS_SERVER_APP_CONFIG", v)])
-        .unwrap_or_default();
-    run_step_with_env(
-        "cargo",
-        &["build", "-p", "mbus-ffi", "--features", features],
-        root,
-        &env_pair,
-    )?;
+    
+    if let Some(v) = config_abs.as_deref() {
+        unsafe { std::env::set_var("MBUS_SERVER_APP_CONFIG", v) };
+    }
+
+    let ffi_out_dir = demo.dir.join("build").join("ffi");
+    let gen_args = vec![
+        "--features".to_string(), features.to_string(),
+        "--out-dir".to_string(), ffi_out_dir.to_string_lossy().into_owned(),
+    ];
+    cmd_gen_client_header(root, &gen_args)?;
+
+    if config_abs.is_some() {
+        unsafe { std::env::remove_var("MBUS_SERVER_APP_CONFIG") };
+    }
 
     // Step 3: cmake configure + build.
     let build_name = if opts.link_static {
@@ -357,6 +345,11 @@ fn build_one_demo(
     } else {
         "build"
     };
+    let build_dir = demo.dir.join(build_name);
+    let cache_file = build_dir.join("CMakeCache.txt");
+    if cache_file.exists() {
+        let _ = std::fs::remove_file(cache_file);
+    }
     let static_flag = if opts.link_static {
         "-DMBUS_FFI_LINK_STATIC=ON"
     } else {

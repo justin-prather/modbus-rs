@@ -8,10 +8,10 @@ find_package(Threads REQUIRED)
 option(MBUS_FFI_LINK_STATIC "Link mbus_ffi as static library" OFF)
 
 # Point to the generated header
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../target/mbus-ffi/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/build/ffi/include)
 
 # Path to the Rust library (dev profile)
-set(RUST_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../target/debug")
+set(RUST_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/ffi/library")
 
 if(MBUS_FFI_LINK_STATIC)
     set(_MBUS_ORIG_FIND_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})

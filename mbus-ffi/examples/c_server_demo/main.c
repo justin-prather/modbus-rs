@@ -11,7 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "modbus_rs_server.h"
+#include "modbus_rs.h"
 
 #define MAX_COILS 128
 #define MAX_REGS 128

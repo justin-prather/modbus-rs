@@ -6,10 +6,10 @@ include(CTest)
 find_package(Threads REQUIRED)
 
 # Point to the generated header
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../target/mbus-ffi/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/build/ffi/include)
 
 # Path to the Rust library (dev profile)
-set(RUST_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../target/debug")
+set(RUST_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/ffi/library")
 
 # Note: on macOS this is libmbus_ffi.dylib, on Linux libmbus_ffi.so, Windows mbus_ffi.dll.
 # CMake handles this via find_library if we give it the name without prefix/suffix.
