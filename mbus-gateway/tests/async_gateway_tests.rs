@@ -164,3 +164,74 @@ async fn test_async_raw_gateway_server_routing() {
     assert_eq!(req[6], 0x01); // Unit=1
     assert_eq!(req[7], 0x03); // Fn=3
 }
+
+#[derive(Clone, Default)]
+struct RoutingMissRecorder {
+    missed: Arc<std::sync::Mutex<Vec<UnitIdOrSlaveAddr>>>,
+}
+
+impl mbus_gateway::GatewayEventHandler for RoutingMissRecorder {
+    fn on_routing_miss(&mut self, _session_id: u8, unit: UnitIdOrSlaveAddr) {
+        self.missed.lock().unwrap().push(unit);
+    }
+}
+
+#[tokio::test]
+async fn test_async_raw_gateway_server_routing_miss() {
+    // Upstream (Raw TCP) <--> Gateway
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let (token, shutdown) = GatewayShutdown::new();
+
+    // Start a dummy upstream client that connects to the listener and sends a Modbus frame for an unrouted unit
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        let mut client = TokioTcpTransport::connect(format!("127.0.0.1:{}", port))
+            .await
+            .unwrap();
+
+        // Modbus TCP Frame: TxnId=0x1234, Proto=0, Len=6, Unit=42, Fn=3, Addr=0, Cnt=1
+        // Unit 42 will not be routed.
+        let req_frame: [u8; 12] = [
+            0x12, 0x34, 0x00, 0x00, 0x00, 0x06, 0x2A, 0x03, 0x00, 0x00, 0x00, 0x01,
+        ];
+        client.send(&req_frame).await.unwrap();
+
+        // Wait for response (exception)
+        let resp = client.recv().await.unwrap();
+        // Verify we got an exception
+        assert!(resp.len() >= 9);
+        assert_eq!(resp[7], 0x83); // exception function code (0x03 | 0x80)
+
+        // Cancel the gateway
+        token.cancel();
+    });
+
+    let (stream, _) = listener.accept().await.unwrap();
+    let upstream = TokioTcpTransport::from_stream(stream);
+
+    // Empty route table means unit 42 routing miss
+    let table = UnitRouteTable::<4>::new();
+    let recorder = RoutingMissRecorder::default();
+    let handler = Arc::new(Mutex::new(recorder.clone()));
+
+    let downstreams: Vec<Arc<Mutex<MockTransport>>> = vec![];
+    let result = AsyncRawGatewayServer::serve_with_shutdown(
+        upstream,
+        table,
+        downstreams,
+        handler,
+        Duration::from_secs(1),
+        shutdown,
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    // Verify routing miss was captured
+    let missed_units = recorder.missed.lock().unwrap().clone();
+    assert_eq!(missed_units.len(), 1);
+    assert_eq!(missed_units[0].get(), 42);
+}
+

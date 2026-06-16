@@ -304,6 +304,10 @@ where
             }
             None => {
                 gateway_log_debug!("routing miss for unit={}", unit.get());
+                {
+                    let mut h = handler.lock().await;
+                    h.on_routing_miss(0, unit);
+                }
                 let _ = send_async_exception(
                     &mut upstream,
                     upstream_txn,

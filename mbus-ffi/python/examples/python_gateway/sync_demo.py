@@ -33,6 +33,23 @@ GATEWAY_PORT = 5020
 UNIT_ID = 1
 
 
+class LoggingEventHandler(modbus_rs.GatewayEventHandler):
+    def on_forward(self, session_id: int, unit_id: int, channel_idx: int) -> None:
+        print(f"[EVENT] on_forward: session={session_id}, unit={unit_id}, channel={channel_idx}")
+
+    def on_response_returned(self, session_id: int, upstream_txn: int) -> None:
+        print(f"[EVENT] on_response_returned: session={session_id}, txn={upstream_txn}")
+
+    def on_routing_miss(self, session_id: int, unit_id: int) -> None:
+        print(f"[EVENT] on_routing_miss: session={session_id}, unit={unit_id}")
+
+    def on_downstream_timeout(self, session_id: int, internal_txn: int) -> None:
+        print(f"[EVENT] on_downstream_timeout: session={session_id}, internal_txn={internal_txn}")
+
+    def on_upstream_disconnect(self, session_id: int) -> None:
+        print(f"[EVENT] on_upstream_disconnect: session={session_id}")
+
+
 class EchoApp(modbus_rs.ModbusApp):
     def handle_read_holding_registers(self, address: int, count: int):
         return [(address + i) & 0xFFFF for i in range(count)]
@@ -112,10 +129,10 @@ def main() -> None:
     print(f"Starting downstream Modbus server on 127.0.0.1:{downstream_port} (unit={UNIT_ID})")
     server_loop, server_thread = start_downstream(downstream_port)
 
-    print(f"Starting sync TcpGateway on 127.0.0.1:{GATEWAY_PORT}")
+    print(f"Starting sync TcpGateway on 127.0.0.1:{GATEWAY_PORT} with LoggingEventHandler")
     gw = modbus_rs.TcpGateway(
         f"127.0.0.1:{GATEWAY_PORT}",
-        event_handler=modbus_rs.GatewayEventHandler(),
+        event_handler=LoggingEventHandler(),
     )
     ch = gw.add_tcp_downstream("127.0.0.1", downstream_port)
     gw.add_unit_route(unit=UNIT_ID, channel=ch)
@@ -125,11 +142,26 @@ def main() -> None:
     wait_port("127.0.0.1", GATEWAY_PORT)
 
     try:
+        # Send a valid request
+        print("\n--- Sending valid request (Unit 1) ---")
         body = send_read_holding_registers(
             "127.0.0.1", GATEWAY_PORT, unit=UNIT_ID, start=10, qty=4
         )
         regs = struct.unpack(">HHHH", body[2:10])
         print(f"OK: gateway returned registers {list(regs)} (expected [10, 11, 12, 13])")
+
+        # Send a request with a routing miss
+        print("\n--- Sending request with routing miss (Unit 99) ---")
+        try:
+            send_read_holding_registers(
+                "127.0.0.1", GATEWAY_PORT, unit=99, start=10, qty=4
+            )
+        except Exception as exc:
+            print(f"Expected exception received: {exc!r}")
+
+        # Let the event handler callbacks run
+        time.sleep(0.5)
+        print("\nDemo complete. Shutting down...")
     finally:
         gw.stop()
         gw_thread.join(timeout=3)

@@ -131,9 +131,9 @@ gw.serve_forever()  # call gw.stop() from another thread to exit
 Runnable demos: [`python/examples/python_gateway/sync_demo.py`](python/examples/python_gateway/sync_demo.py)
 and [`python/examples/python_gateway/async_demo.py`](python/examples/python_gateway/async_demo.py).
 
-> The `event_handler=GatewayEventHandler()` constructor argument is currently
-> accepted but not invoked — the underlying async gateway server has no event
-> hook surface yet. The class exists for forward compatibility.
+> The `event_handler=GatewayEventHandler()` constructor argument can be passed
+> to receive telemetry and lifecycle events (such as forwarding, responses, timeouts,
+> routing misses, and disconnects) from the underlying async gateway server.
 
 ---
 
