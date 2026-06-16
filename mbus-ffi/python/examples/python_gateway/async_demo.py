@@ -36,6 +36,23 @@ GATEWAY_PORT = 5021
 UNIT_ID = 1
 
 
+class LoggingEventHandler(modbus_rs.GatewayEventHandler):
+    def on_forward(self, session_id: int, unit_id: int, channel_idx: int) -> None:
+        print(f"[EVENT] on_forward: session={session_id}, unit={unit_id}, channel={channel_idx}")
+
+    def on_response_returned(self, session_id: int, upstream_txn: int) -> None:
+        print(f"[EVENT] on_response_returned: session={session_id}, txn={upstream_txn}")
+
+    def on_routing_miss(self, session_id: int, unit_id: int) -> None:
+        print(f"[EVENT] on_routing_miss: session={session_id}, unit={unit_id}")
+
+    def on_downstream_timeout(self, session_id: int, internal_txn: int) -> None:
+        print(f"[EVENT] on_downstream_timeout: session={session_id}, internal_txn={internal_txn}")
+
+    def on_upstream_disconnect(self, session_id: int) -> None:
+        print(f"[EVENT] on_upstream_disconnect: session={session_id}")
+
+
 class EchoApp(modbus_rs.ModbusApp):
     def handle_read_holding_registers(self, address: int, count: int):
         return [(address + i) & 0xFFFF for i in range(count)]
@@ -115,8 +132,11 @@ async def amain() -> None:
         None, start_downstream, downstream_port
     )
 
-    print(f"Starting AsyncTcpGateway on 127.0.0.1:{GATEWAY_PORT}")
-    gw = modbus_rs.AsyncTcpGateway(f"127.0.0.1:{GATEWAY_PORT}")
+    print(f"Starting AsyncTcpGateway on 127.0.0.1:{GATEWAY_PORT} with LoggingEventHandler")
+    gw = modbus_rs.AsyncTcpGateway(
+        f"127.0.0.1:{GATEWAY_PORT}",
+        event_handler=LoggingEventHandler(),
+    )
     ch = gw.add_tcp_downstream("127.0.0.1", downstream_port)
     gw.add_unit_route(unit=UNIT_ID, channel=ch)
 
@@ -126,11 +146,26 @@ async def amain() -> None:
     )
 
     try:
+        # Send a valid request
+        print("\n--- Sending valid request (Unit 1) ---")
         body = await asyncio.get_event_loop().run_in_executor(
             None, send_read_holding_registers, "127.0.0.1", GATEWAY_PORT, UNIT_ID, 0, 5
         )
         regs = struct.unpack(">HHHHH", body[2:12])
         print(f"OK: gateway returned registers {list(regs)} (expected [0, 1, 2, 3, 4])")
+
+        # Send a request with a routing miss
+        print("\n--- Sending request with routing miss (Unit 99) ---")
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, send_read_holding_registers, "127.0.0.1", GATEWAY_PORT, 99, 0, 5
+            )
+        except Exception as exc:
+            print(f"Expected exception received: {exc!r}")
+
+        # Let the event handler callbacks run
+        await asyncio.sleep(0.5)
+        print("\nDemo complete. Shutting down...")
     finally:
         gw.stop()
         try:
