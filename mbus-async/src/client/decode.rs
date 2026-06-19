@@ -3,7 +3,7 @@
 //! # Entry point
 //!
 //! [`decode_response`] is the single entry called by the task receive branch.
-//! It decompiles the raw ADU into a [`ModbusMessage`], extracts the transaction
+//! It decompiles the raw ADU into a [`ModbusMessage`](mbus_core::data_unit::common::ModbusMessage), extracts the transaction
 //! id + unit, and dispatches to a per-FC helper that returns a [`ClientResponse`].
 //!
 //! # Error handling
@@ -63,7 +63,7 @@ use mbus_core::{
 ///
 /// On an exception response the returned `Err` is wrapped in `Ok((txn_id, unit, Err(...)))`
 /// so the caller can still route the error to the correct pending entry.
-pub(crate) fn decode_response(
+pub fn decode_response(
     frame: &[u8],
     transport_type: TransportType,
 ) -> Result<(u16, UnitIdOrSlaveAddr, Result<ClientResponse, MbusError>), MbusError> {

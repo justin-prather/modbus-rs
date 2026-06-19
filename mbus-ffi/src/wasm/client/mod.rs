@@ -10,9 +10,12 @@
 //! Both public client types use the same internal app/router layer so JS-facing
 //! response shapes stay consistent across transports.
 
-mod app;
+mod command;
+pub(crate) mod helpers;
 mod net_client;
+mod response;
 mod serial_client;
+mod task;
 
 pub use net_client::{WasmModbusClient, WasmTcpTransport};
 pub use serial_client::{
