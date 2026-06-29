@@ -11,9 +11,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "declaration": false,
-    "lib": ["ESNext"],
-    "types": ["node"]
+    "lib": ["ESNext"]
   },
-  "include": ["index.d.ts", "examples/**/*.ts", "__test__/**/*.ts"],
+  "include": ["dist/**/*.d.ts", "examples/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "target"]
 }

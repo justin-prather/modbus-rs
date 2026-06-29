@@ -252,6 +252,38 @@ export declare class AsyncSerialModbusClient {
  */
 export declare class AsyncSerialModbusServer {
   /**
+   * Creates and starts a new Modbus RTU server on a serial port.
+   *
+   * @param opts Server configuration options.
+   * @param opts.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3').
+   * @param opts.baudRate The communication speed (e.g., 9600, 19200).
+   * @param opts.unitId The Modbus unit ID the server will respond to.
+   * @param opts.dataBits Optional number of data bits (5, 6, 7, or 8). Defaults to 8.
+   * @param opts.parity Optional parity setting ('none', 'even', 'odd'). Defaults to 'none'.
+   * @param opts.stopBits Optional number of stop bits (1 or 2). Defaults to 1.
+   * @param opts.responseTimeoutMs Optional response timeout in milliseconds. Defaults to 1000.
+   *
+   * @param handlers An object containing callback functions to handle Modbus requests (matches the `ServerHandlers` interface in TypeScript).
+   * @returns A `Promise` that resolves to a running `AsyncSerialModbusServer` instance.
+   */
+  static bindRtu(opts: SerialServerOptions, handlers: ServerHandlers): Promise<AsyncSerialModbusServer>
+  /**
+   * Creates and starts a new Modbus ASCII server on a serial port.
+   *
+   * @param opts Server configuration options.
+   * @param opts.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3').
+   * @param opts.baudRate The communication speed (e.g., 9600, 19200).
+   * @param opts.unitId The Modbus unit ID the server will respond to.
+   * @param opts.dataBits Optional number of data bits (7 or 8). Defaults to 8.
+   * @param opts.parity Optional parity setting ('none', 'even', 'odd'). Defaults to 'none'.
+   * @param opts.stopBits Optional number of stop bits (1 or 2). Defaults to 1.
+   * @param opts.responseTimeoutMs Optional response timeout in milliseconds. Defaults to 1000.
+   *
+   * @param handlers An object containing callback functions to handle Modbus requests (matches the `ServerHandlers` interface in TypeScript).
+   * @returns A `Promise` that resolves to a running `AsyncSerialModbusServer` instance.
+   */
+  static bindAscii(opts: SerialServerOptions, handlers: ServerHandlers): Promise<AsyncSerialModbusServer>
+  /**
    *  Stops the server.
    * Stops the server and closes the serial port.
    */

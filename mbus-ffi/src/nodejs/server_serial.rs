@@ -147,6 +147,8 @@ pub struct AsyncSerialModbusServer {
 
 #[napi]
 impl AsyncSerialModbusServer {
+
+    #[napi]
     #[doc = "Creates and starts a new Modbus RTU server on a serial port."]
     #[doc = ""]
     #[doc = "@param opts Server configuration options."]
@@ -201,6 +203,7 @@ impl AsyncSerialModbusServer {
         Ok(unsafe { extend_lifetime(promise) })
     }
 
+    #[napi]
     #[doc = "Creates and starts a new Modbus ASCII server on a serial port."]
     #[doc = ""]
     #[doc = "@param opts Server configuration options."]
