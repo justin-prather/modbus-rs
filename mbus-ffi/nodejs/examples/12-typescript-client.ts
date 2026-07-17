@@ -30,12 +30,12 @@ async function main(): Promise<void> {
 
   try {
     const readReq: ReadRegistersOptions = { address: 0, quantity: 4 };
-    const regs: number[] = await client.readHoldingRegisters(readReq);
+    const regs: Uint16Array = await client.readHoldingRegisters(readReq);
     console.log('regs:', regs);
 
     await client.writeMultipleRegisters({
       address: 0,
-      values: regs.map((v) => (v + 1) & 0xffff),
+      values: new Uint16Array(Array.from(regs).map((v) => (v + 1) & 0xffff)),
     });
     console.log('Incremented and wrote back.');
   } finally {

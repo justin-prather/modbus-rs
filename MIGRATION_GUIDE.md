@@ -6,6 +6,10 @@ This index redirects you to the specific versioned migration guides for `modbus-
 
 ## 1. Versioned Migration Guides
 
+### [v0.15.4 Migration Guide (from v0.15.3)](./documentation/migrations/v0.15.3-to-v0.15.4.md)
+- **Target Platform**: Node.js FFI & WebAssembly (WASM) Bindings
+- **Topic**: Unified `dist/` package directory layout, strict typed array (`Uint16Array`) signatures, `readFifoQueue` response model alignment, `isConnected()` connection parity, and typed NodeJS server handlers.
+
 ### [v0.15.0 Migration Guide (from v0.14.0)](./documentation/migrations/v0.14.0-to-v0.15.0.md)
 - **Target Platform**: Node.js FFI Bindings
 - **Topic**: Consistent naming, async server bind, retry configurations, error code constants, and expanded server request handlers.

@@ -15,7 +15,7 @@
 import { AsyncTcpModbusServer } from 'modbus-rs';
 
 const counters = { reads: 0, writes: 0 };
-const registers = new Array(256).fill(0);
+const registers = new Uint16Array(256);
 
 const PORT = Number(process.env.MODBUS_PORT ?? 5502);
 
@@ -25,8 +25,7 @@ async function main() {
     {
       onReadHoldingRegisters: (req) => {
         counters.reads++;
-        const slice = registers.slice(req.address, req.address + req.quantity);
-        return slice;
+        return registers.subarray(req.address, req.address + req.quantity);
       },
       onWriteSingleRegister: (req) => {
         counters.writes++;

@@ -31,10 +31,13 @@ pub struct SerialServerOptions {
     #[doc = "Baud rate (e.g., 9600, 19200, 38400, 57600, 115200)."]
     pub baud_rate: u32,
     #[doc = "Data bits (5, 6, 7, or 8)."]
+    #[napi(ts_type = "5 | 6 | 7 | 8")]
     pub data_bits: Option<u8>,
     #[doc = "Parity (\"none\", \"even\", \"odd\")."]
+    #[napi(ts_type = "'none' | 'even' | 'odd'")]
     pub parity: Option<String>,
     #[doc = "Stop bits (1 or 2)."]
+    #[napi(ts_type = "1 | 2")]
     pub stop_bits: Option<u8>,
     #[doc = "Modbus unit ID (1-247) for the server to respond to."]
     pub unit_id: u8,
@@ -95,27 +98,30 @@ fn parse_stop_bits(bits: u8) -> Result<u8> {
 }
 
 /// Builds a `ModbusSerialConfig` from the provided options.
-fn build_serial_config(opts: &SerialServerOptions, mode: SerialMode) -> Result<ModbusSerialConfig> {
-    let baud_rate = parse_baud_rate(opts.baud_rate)?;
-    let data_bits = opts
+fn build_serial_config(
+    options: &SerialServerOptions,
+    mode: SerialMode,
+) -> Result<ModbusSerialConfig> {
+    let baud_rate = parse_baud_rate(options.baud_rate)?;
+    let data_bits = options
         .data_bits
         .map(parse_data_bits)
         .transpose()?
         .unwrap_or(DataBits::Eight);
-    let parity = opts
+    let parity = options
         .parity
         .as_ref()
         .map(|s| parse_parity(s))
         .transpose()?
         .unwrap_or(Parity::None);
-    let stop_bits = opts
+    let stop_bits = options
         .stop_bits
         .map(parse_stop_bits)
         .transpose()?
         .unwrap_or(1);
-    let response_timeout_ms = opts.response_timeout_ms.unwrap_or(1000);
+    let response_timeout_ms = options.response_timeout_ms.unwrap_or(1000);
 
-    let port_path = heapless::String::try_from(opts.port_path.as_str())
+    let port_path = heapless::String::try_from(options.port_path.as_str())
         .map_err(|_| napi::Error::new(Status::InvalidArg, "Port path too long (max 64 chars)"))?;
 
     Ok(ModbusSerialConfig {
@@ -147,31 +153,30 @@ pub struct AsyncSerialModbusServer {
 
 #[napi]
 impl AsyncSerialModbusServer {
-
     #[napi]
     #[doc = "Creates and starts a new Modbus RTU server on a serial port."]
     #[doc = ""]
-    #[doc = "@param opts Server configuration options."]
-    #[doc = "@param opts.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
-    #[doc = "@param opts.baudRate The communication speed (e.g., 9600, 19200)."]
-    #[doc = "@param opts.unitId The Modbus unit ID the server will respond to."]
-    #[doc = "@param opts.dataBits Optional number of data bits (5, 6, 7, or 8). Defaults to 8."]
-    #[doc = "@param opts.parity Optional parity setting ('none', 'even', 'odd'). Defaults to 'none'."]
-    #[doc = "@param opts.stopBits Optional number of stop bits (1 or 2). Defaults to 1."]
-    #[doc = "@param opts.responseTimeoutMs Optional response timeout in milliseconds. Defaults to 1000."]
+    #[doc = "@param {SerialServerOptions} options Server configuration options."]
+    #[doc = "@param {string} options.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
+    #[doc = "@param {number} options.baudRate The communication speed (e.g., 9600, 19200)."]
+    #[doc = "@param {number} options.unitId The Modbus unit ID the server will respond to."]
+    #[doc = "@param {number} [options.dataBits] Optional number of data bits (5, 6, 7, or 8). Defaults to 8."]
+    #[doc = "@param {string} [options.parity] Optional parity setting ('none', 'even', 'odd'). Defaults to 'none'."]
+    #[doc = "@param {number} [options.stopBits] Optional number of stop bits (1 or 2). Defaults to 1."]
+    #[doc = "@param {number} [options.responseTimeoutMs] Optional response timeout in milliseconds. Defaults to 1000."]
     #[doc = ""]
-    #[doc = "@param handlers An object containing callback functions to handle Modbus requests (matches the `ServerHandlers` interface in TypeScript)."]
-    #[doc = "@returns A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
+    #[doc = "@param {ServerHandlers} handlers An object containing callback functions to handle Modbus requests."]
+    #[doc = "@returns {Promise<AsyncSerialModbusServer>} A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
     #[allow(clippy::missing_transmute_annotations)]
     pub fn bind_rtu(
         env: Env,
-        opts: SerialServerOptions,
-        handlers: Object<'_>,
+        options: SerialServerOptions,
+        #[napi(ts_arg_type = "ServerHandlers")] handlers: Object<'_>,
     ) -> Result<PromiseRaw<'static, AsyncSerialModbusServer>> {
-        let unit = UnitIdOrSlaveAddr::new(opts.unit_id)
+        let unit = UnitIdOrSlaveAddr::new(options.unit_id)
             .map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
 
-        let serial_config = build_serial_config(&opts, SerialMode::Rtu)?;
+        let serial_config = build_serial_config(&options, SerialMode::Rtu)?;
         let config = mbus_core::transport::ModbusConfig::Serial(serial_config);
 
         let stop_signal = Arc::new(Notify::new());
@@ -206,27 +211,27 @@ impl AsyncSerialModbusServer {
     #[napi]
     #[doc = "Creates and starts a new Modbus ASCII server on a serial port."]
     #[doc = ""]
-    #[doc = "@param opts Server configuration options."]
-    #[doc = "@param opts.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
-    #[doc = "@param opts.baudRate The communication speed (e.g., 9600, 19200)."]
-    #[doc = "@param opts.unitId The Modbus unit ID the server will respond to."]
-    #[doc = "@param opts.dataBits Optional number of data bits (7 or 8). Defaults to 8."]
-    #[doc = "@param opts.parity Optional parity setting ('none', 'even', 'odd'). Defaults to 'none'."]
-    #[doc = "@param opts.stopBits Optional number of stop bits (1 or 2). Defaults to 1."]
-    #[doc = "@param opts.responseTimeoutMs Optional response timeout in milliseconds. Defaults to 1000."]
+    #[doc = "@param {SerialServerOptions} options Server configuration options."]
+    #[doc = "@param {string} options.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
+    #[doc = "@param {number} options.baudRate The communication speed (e.g., 9600, 19200)."]
+    #[doc = "@param {number} options.unitId The Modbus unit ID the server will respond to."]
+    #[doc = "@param {number} [options.dataBits] Optional number of data bits (7 or 8). Defaults to 8."]
+    #[doc = "@param {string} [options.parity] Optional parity setting ('none', 'even', 'odd'). Defaults to 'none'."]
+    #[doc = "@param {number} [options.stopBits] Optional number of stop bits (1 or 2). Defaults to 1."]
+    #[doc = "@param {number} [options.responseTimeoutMs] Optional response timeout in milliseconds. Defaults to 1000."]
     #[doc = ""]
-    #[doc = "@param handlers An object containing callback functions to handle Modbus requests (matches the `ServerHandlers` interface in TypeScript)."]
-    #[doc = "@returns A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
+    #[doc = "@param {ServerHandlers} handlers An object containing callback functions to handle Modbus requests."]
+    #[doc = "@returns {Promise<AsyncSerialModbusServer>} A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
     #[allow(clippy::missing_transmute_annotations)]
     pub fn bind_ascii(
         env: Env,
-        opts: SerialServerOptions,
-        handlers: Object<'_>,
+        options: SerialServerOptions,
+        #[napi(ts_arg_type = "ServerHandlers")] handlers: Object<'_>,
     ) -> Result<PromiseRaw<'static, AsyncSerialModbusServer>> {
-        let unit = UnitIdOrSlaveAddr::new(opts.unit_id)
+        let unit = UnitIdOrSlaveAddr::new(options.unit_id)
             .map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
 
-        let serial_config = build_serial_config(&opts, SerialMode::Ascii)?;
+        let serial_config = build_serial_config(&options, SerialMode::Ascii)?;
         let config = mbus_core::transport::ModbusConfig::Serial(serial_config);
 
         let stop_signal = Arc::new(Notify::new());

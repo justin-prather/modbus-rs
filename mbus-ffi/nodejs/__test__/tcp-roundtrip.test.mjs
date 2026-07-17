@@ -8,13 +8,13 @@ import assert from 'node:assert/strict';
 
 let modbus;
 try {
-  modbus = await import('../index.js');
+  modbus = await import('../dist/index.js');
 } catch (err) {
   console.warn(
     `[skip] Native modbus-rs addon not loadable — did you run 'npm run build'?`,
     `\n      Reason: ${err.message}`,
   );
-  test('native addon present', { skip: true }, () => {});
+  test('native addon present', { skip: true }, () => { });
   // eslint-disable-next-line no-process-exit
   process.exit(0);
 }
@@ -56,7 +56,7 @@ test('client lifecycle: connect / close against stub server', async (t) => {
   await client.writeSingleRegister({ address: 0, value: 42 });
   await client.writeMultipleRegisters({
     address: 10,
-    values: [1, 2, 3, 4],
+    values: new Uint16Array([1, 2, 3, 4]),
   });
 
   await transport.close();
@@ -111,8 +111,7 @@ test('round-trip reads/writes with JS server handlers', async (t) => {
     {
       onReadHoldingRegisters: async (req) => {
         const { address, quantity } = req;
-        const vals = Array.from(holdingRegisters.slice(address, address + quantity));
-        return vals;
+        return holdingRegisters.slice(address, address + quantity);
       },
       onWriteSingleRegister: async (req) => {
         const { address, value } = req;
@@ -126,12 +125,11 @@ test('round-trip reads/writes with JS server handlers', async (t) => {
       },
       onReadCoils: async (req) => {
         const { address, quantity } = req;
-        const vals = Array.from(coils.slice(address, address + quantity)).map(v => v === 1);
-        return vals;
+        return Array.from(coils.slice(address, address + quantity));
       },
       onWriteSingleCoil: async (req) => {
         const { address, value } = req;
-        coils[address] = value ? 1 : 0;
+        coils[address] = value;
       },
     }
   );
@@ -154,16 +152,16 @@ test('round-trip reads/writes with JS server handlers', async (t) => {
   // Test holding registers round-trip
   await client.writeSingleRegister({ address: 10, value: 1234 });
   let regs = await client.readHoldingRegisters({ address: 10, quantity: 1 });
-  assert.deepEqual(regs, [1234]);
+  assert.deepEqual(regs, new Uint16Array([1234]));
 
-  await client.writeMultipleRegisters({ address: 20, values: [5, 6, 7] });
+  await client.writeMultipleRegisters({ address: 20, values: new Uint16Array([5, 6, 7]) });
   regs = await client.readHoldingRegisters({ address: 20, quantity: 3 });
-  assert.deepEqual(regs, [5, 6, 7]);
+  assert.deepEqual(regs, new Uint16Array([5, 6, 7]));
 
   // Test coils round-trip
-  await client.writeSingleCoil({ address: 5, value: true });
+  await client.writeSingleCoil({ address: 5, value: 1 });
   let coilsVal = await client.readCoils({ address: 5, quantity: 1 });
-  assert.deepEqual(coilsVal, [true]);
+  assert.deepEqual(coilsVal, [1]);
 });
 
 test('server exception handling: returning custom error exceptions', async (t) => {
@@ -173,7 +171,7 @@ test('server exception handling: returning custom error exceptions', async (t) =
       onReadHoldingRegisters: async (req) => {
         if (req.address >= 50) {
           // Return Modbus exception 2 (Illegal Data Address)
-          return { exception: 2 };
+          return { exceptionCode: 2 };
         }
         return [0];
       }
@@ -197,7 +195,7 @@ test('server exception handling: returning custom error exceptions', async (t) =
 
   // Valid address should succeed
   const ok = await client.readHoldingRegisters({ address: 10, quantity: 1 });
-  assert.deepEqual(ok, [0]);
+  assert.deepEqual(ok, new Uint16Array([0]));
 
   // Invalid address should fail with Modbus Exception 2
   await assert.rejects(
@@ -214,7 +212,12 @@ test('server exception handling: returning custom error exceptions', async (t) =
 test('per-request client AbortSignal cancellation', async (t) => {
   const server = await AsyncTcpModbusServer.bind(
     { host: '127.0.0.1', port: PORT + 5, unitId: 1 },
-    {}
+    {
+      onReadHoldingRegisters: async () => {
+        await new Promise((r) => setTimeout(r, 500));
+        return new Uint16Array([0]);
+      }
+    }
   );
   t.after(async () => {
     await server.shutdown();
@@ -259,7 +262,7 @@ test('round-trip with sync (non-async) handlers', async (t) => {
     {
       // Intentionally NOT async
       onReadHoldingRegisters: (req) => {
-        return holdingRegisters.slice(req.address, req.address + req.quantity);
+        return new Uint16Array(holdingRegisters.slice(req.address, req.address + req.quantity));
       },
       onWriteSingleRegister: (req) => {
         holdingRegisters[req.address] = req.value;
@@ -278,7 +281,7 @@ test('round-trip with sync (non-async) handlers', async (t) => {
 
   await client.writeSingleRegister({ address: 0, value: 42 });
   const regs = await client.readHoldingRegisters({ address: 0, quantity: 1 });
-  assert.deepEqual(regs, [42]);
+  assert.deepEqual(regs, new Uint16Array([42]));
 });
 
 test('multi-drop TCP client sharing (same unit ID)', async (t) => {
@@ -286,7 +289,7 @@ test('multi-drop TCP client sharing (same unit ID)', async (t) => {
     { host: '127.0.0.1', port: PORT + 7, unitId: 1 },
     {
       onReadHoldingRegisters: async (req) => {
-        return [100 + req.address];
+        return new Uint16Array([100 + req.address]);
       },
     }
   );
@@ -310,8 +313,8 @@ test('multi-drop TCP client sharing (same unit ID)', async (t) => {
   const res1 = await client1.readHoldingRegisters({ address: 5, quantity: 1 });
   const res2 = await client2.readHoldingRegisters({ address: 10, quantity: 1 });
 
-  assert.deepEqual(res1, [105]);
-  assert.deepEqual(res2, [110]);
+  assert.deepEqual(res1, new Uint16Array([105]));
+  assert.deepEqual(res2, new Uint16Array([110]));
 });
 
 test('logical client lifecycle on transport close', async (t) => {
@@ -350,7 +353,7 @@ test('gateway routing (different unit IDs) over single transport', async (t) => 
     { host: '127.0.0.1', port: PORT + 9, unitId: 10 },
     {
       onReadHoldingRegisters: async (req) => {
-        return [1000 + req.address];
+        return new Uint16Array([1000 + req.address]);
       },
     }
   );
@@ -363,7 +366,7 @@ test('gateway routing (different unit IDs) over single transport', async (t) => 
     { host: '127.0.0.1', port: PORT + 10, unitId: 20 },
     {
       onReadHoldingRegisters: async (req) => {
-        return [2000 + req.address];
+        return new Uint16Array([2000 + req.address]);
       },
     }
   );
@@ -411,8 +414,8 @@ test('gateway routing (different unit IDs) over single transport', async (t) => 
   const res10 = await client10.readHoldingRegisters({ address: 5, quantity: 1 });
   const res20 = await client20.readHoldingRegisters({ address: 5, quantity: 1 });
 
-  assert.deepEqual(res10, [1005]);
-  assert.deepEqual(res20, [2005]);
+  assert.deepEqual(res10, new Uint16Array([1005]));
+  assert.deepEqual(res20, new Uint16Array([2005]));
 });
 
 test('ModbusErrorCode constants exist and are strings', () => {
@@ -478,30 +481,30 @@ test('round-trip reads/writes for remaining Modbus services (discrete inputs, in
         const { address, quantity } = req;
         const result = [];
         for (let i = 0; i < quantity; i++) {
-          result.push((address + i) % 2 === 0);
+          result.push((address + i) % 2 === 0 ? 1 : 0);
         }
         return result;
       },
       onReadInputRegisters: async (req) => {
         const { address, quantity } = req;
-        const result = [];
+        const result = new Uint16Array(quantity);
         for (let i = 0; i < quantity; i++) {
-          result.push(address + i + 100);
+          result[i] = address + i + 100;
         }
         return result;
       },
       onReadWriteMultipleRegisters: async (req) => {
         const { readAddress, readQuantity, writeAddress, writeValues } = req;
         // Just echo back values based on readAddress for this test
-        const result = [];
+        const result = new Uint16Array(readQuantity);
         for (let i = 0; i < readQuantity; i++) {
-          result.push(readAddress + i + writeValues[0]);
+          result[i] = readAddress + i + writeValues[0];
         }
         return result;
       },
       onReadFifoQueue: async (req) => {
         const { address } = req;
-        return [address, address + 1, address + 2];
+        return new Uint16Array([address, address + 1, address + 2]);
       },
       onReadExceptionStatus: async () => {
         return 0x5A;
@@ -520,9 +523,9 @@ test('round-trip reads/writes for remaining Modbus services (discrete inputs, in
           const file = fileRecords[sub.fileNumber];
           const rec = file ? file[sub.recordNumber] : undefined;
           if (rec) {
-            responses.push(rec.slice(0, sub.recordLength));
+            responses.push(new Uint16Array(rec.slice(0, sub.recordLength)));
           } else {
-            responses.push(new Array(sub.recordLength).fill(0));
+            responses.push(new Uint16Array(sub.recordLength));
           }
         }
         return responses;
@@ -535,6 +538,28 @@ test('round-trip reads/writes for remaining Modbus services (discrete inputs, in
           }
           fileRecords[sub.fileNumber][sub.recordNumber] = sub.recordData;
         }
+      },
+      onReadDeviceIdentification: async (req) => {
+        const { unitId, readDeviceIdCode, objectId } = req;
+        assert.equal(unitId, 1);
+        if (readDeviceIdCode === 1 && objectId === 0) {
+          return {
+            conformityLevel: 0x82,
+            moreFollows: false,
+            nextObjectId: 0,
+            objects: [
+              { id: 0x00, value: "Modbus-RS NodeJS Server Test" },
+              { id: 0x01, value: "mbus-nodejs-server-test" },
+              { id: 0x02, value: "v1.0" }
+            ]
+          };
+        }
+        return {
+          conformityLevel: 0x82,
+          moreFollows: false,
+          nextObjectId: 0,
+          objects: []
+        };
       }
     }
   );
@@ -556,38 +581,38 @@ test('round-trip reads/writes for remaining Modbus services (discrete inputs, in
 
   // 1. Read Discrete Inputs
   const discreteRes = await client.readDiscreteInputs({ address: 10, quantity: 4 });
-  assert.deepEqual(discreteRes, [true, false, true, false]);
+  assert.deepEqual(discreteRes, [1, 0, 1, 0]);
 
   // 2. Read Input Registers
   const inputRegsRes = await client.readInputRegisters({ address: 20, quantity: 2 });
-  assert.deepEqual(inputRegsRes, [120, 121]);
+  assert.deepEqual(inputRegsRes, new Uint16Array([120, 121]));
 
   // 3. Read/Write Multiple Registers
   const rwRegsRes = await client.readWriteMultipleRegisters({
     readAddress: 30,
     readQuantity: 2,
     writeAddress: 40,
-    writeValues: [10]
+    writeValues: new Uint16Array([10])
   });
-  assert.deepEqual(rwRegsRes, [40, 41]);
+  assert.deepEqual(rwRegsRes, new Uint16Array([40, 41]));
 
   // 4. Read FIFO Queue
   const fifoRes = await client.readFifoQueue({ address: 50 });
-  assert.deepEqual(fifoRes.values, [50, 51, 52]);
+  assert.deepEqual(fifoRes.values, new Uint16Array([50, 51, 52]));
 
   // 5. Read Exception Status
   const excStatus = await client.readExceptionStatus();
   assert.equal(excStatus, 0x5A);
 
   // 6. Diagnostics
-  const diagRes = await client.diagnostics({ subFunction: 3, data: [100] });
+  const diagRes = await client.diagnostics({ subFunction: 3, data: new Uint16Array([100]) });
   assert.equal(diagRes.subFunction, 3);
-  assert.deepEqual(diagRes.data, [101]);
+  assert.deepEqual(diagRes.data, new Uint16Array([101]));
 
   // 7. Write File Record & Read File Record
   await client.writeFileRecord({
     requests: [
-      { fileNumber: 4, recordNumber: 2, recordData: [90, 80] }
+      { fileNumber: 4, recordNumber: 2, recordData: new Uint16Array([90, 80]) }
     ]
   });
 
@@ -598,9 +623,34 @@ test('round-trip reads/writes for remaining Modbus services (discrete inputs, in
     ]
   });
   assert.deepEqual(fileRes, [
-    [10, 20, 30],
-    [90, 80]
+    new Uint16Array([10, 20, 30]),
+    new Uint16Array([90, 80])
   ]);
+
+  // 8. Read Device Identification
+  const deviceIdRes = await client.readDeviceIdentification({
+    readDeviceIdCode: 1,
+    objectId: 0
+  });
+  assert.equal(deviceIdRes.conformityLevel, 0x82);
+  assert.equal(deviceIdRes.objects[0].id, 0);
+  assert.equal(deviceIdRes.objects[0].value, "Modbus-RS NodeJS Server Test");
+
+  // 9. pendingRequests getter
+  assert.equal(typeof client.pendingRequests, 'boolean');
+  assert.equal(client.pendingRequests, false);
+
+  // 9b. isConnected() method
+  assert.equal(typeof client.isConnected, 'function');
+  assert.equal(client.isConnected(), true);
+
+  // 10. close() returns Promise
+  const closePromise = transport.close();
+  assert.ok(closePromise instanceof Promise);
+  await closePromise;
+
+  // 10b. isConnected() returns false after close
+  assert.equal(client.isConnected(), false);
 });
 
 test('client fails to connect to non-existent server', async () => {
@@ -646,7 +696,7 @@ test('client retries on send failure and succeeds after reconnect', async (t) =>
           holdingRegisters[address] = value;
         },
         onReadHoldingRegisters: async ({ address, quantity }) => {
-          return Array.from(holdingRegisters.slice(address, address + quantity));
+          return holdingRegisters.slice(address, address + quantity);
         }
       }
     );
@@ -675,7 +725,7 @@ test('client retries on send failure and succeeds after reconnect', async (t) =>
   // 1. Initial successful write to confirm connection.
   await client.writeSingleRegister({ address: 0, value: 42 });
   let regs = await client.readHoldingRegisters({ address: 0, quantity: 1 });
-  assert.deepEqual(regs, [42], 'Initial write should succeed');
+  assert.deepEqual(regs, new Uint16Array([42]), 'Initial write should succeed');
 
   // 2. Shut down the server to simulate connection loss.
   await server.shutdown();
@@ -704,7 +754,7 @@ test('client retries on send failure and succeeds after reconnect', async (t) =>
 
   // 6. Verify the write succeeded by reading the value back.
   regs = await client.readHoldingRegisters({ address: 1, quantity: 1 });
-  assert.deepEqual(regs, [99], 'Write after reconnect and retry should succeed');
+  assert.deepEqual(regs, new Uint16Array([99]), 'Write after reconnect and retry should succeed');
 });
 
 test('client request fails if server disconnects mid-operation and does not recover', async (t) => {
@@ -721,9 +771,9 @@ test('client request fails if server disconnects mid-operation and does not reco
         // The client's request will fail because the server closes down.
         // We use a finite timeout longer than the client's outer timeout
         // so no zombie tasks are left behind.
-        server.shutdown().catch(() => {});
+        server.shutdown().catch(() => { });
         await new Promise((r) => setTimeout(r, 2500));
-        return [1, 2, 3];
+        return new Uint16Array([1, 2, 3]);
       }
     }
   );
@@ -754,7 +804,7 @@ test('server disconnects during client request', async (t) => {
       onReadHoldingRegisters: async () => {
         // This handler will never complete because we shut down the server.
         await new Promise((r) => setTimeout(r, 2000));
-        return [1, 2, 3];
+        return new Uint16Array([1, 2, 3]);
       }
     }
   );
@@ -836,7 +886,7 @@ test('high-concurrency client multiplexing', async (t) => {
   for (let i = 0; i < 50; i++) {
     promises.push(
       client.readHoldingRegisters({ address: i, quantity: 2 }).then((res) => {
-        assert.deepEqual(res, [i, 2], `Mismatch on multiplexed index ${i}`);
+        assert.deepEqual(res, new Uint16Array([i, 2]), `Mismatch on multiplexed index ${i}`);
       })
     );
   }
@@ -865,7 +915,7 @@ test('connection fatigue under heavy connect/disconnect cycles', async (t) => {
     });
     const client = transport.createClient({ unitId: 1 });
     const regs = await client.readHoldingRegisters({ address: i, quantity: 1 });
-    assert.deepEqual(regs, [i]);
+    assert.deepEqual(regs, new Uint16Array([i]));
     await transport.close();
   }
 });
@@ -892,7 +942,7 @@ test('client remains intact and works after manual transport reconnect', async (
   let server = await startServer();
   t.after(async () => {
     if (server) {
-      try { await server.shutdown(); } catch (e) {}
+      try { await server.shutdown(); } catch (e) { }
     }
   });
 
@@ -909,7 +959,7 @@ test('client remains intact and works after manual transport reconnect', async (
 
   // 1. Initial read should succeed
   let regs = await client.readHoldingRegisters({ address: 0, quantity: 1 });
-  assert.deepEqual(regs, [42], 'Initial read should succeed');
+  assert.deepEqual(regs, new Uint16Array([42]), 'Initial read should succeed');
 
   // 2. Shut down server to break connection
   await server.shutdown();
@@ -946,7 +996,7 @@ test('client remains intact and works after manual transport reconnect', async (
 
   // 7. Reuse the EXACT same client instance to read again — it should work immediately!
   regs = await client.readHoldingRegisters({ address: 1, quantity: 1 });
-  assert.deepEqual(regs, [99], 'Read after reconnect should succeed using original client');
+  assert.deepEqual(regs, new Uint16Array([99]), 'Read after reconnect should succeed using original client');
 });
 
 
@@ -972,7 +1022,7 @@ test('client remains intact and fails after manual transport reconnect', async (
   let server = await startServer();
   t.after(async () => {
     if (server) {
-      try { await server.shutdown(); } catch (e) {}
+      try { await server.shutdown(); } catch (e) { }
     }
   });
 
@@ -989,7 +1039,7 @@ test('client remains intact and fails after manual transport reconnect', async (
 
   // 1. Initial read should succeed
   let regs = await client.readHoldingRegisters({ address: 0, quantity: 1 });
-  assert.deepEqual(regs, [42], 'Initial read should succeed');
+  assert.deepEqual(regs, new Uint16Array([42]), 'Initial read should succeed');
 
   // 2. Shut down server to break connection
   await server.shutdown();

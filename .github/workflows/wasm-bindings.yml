@@ -7,7 +7,6 @@ on:
       - 'mbus-ffi/**'
       - '!mbus-ffi/dotnet/**'
       - '!mbus-ffi/go/**'
-      - '!mbus-ffi/nodejs/**'
       - '!mbus-ffi/python/**'
       - '!mbus-ffi/examples/c_*/**'
       - 'mbus-core/**'
@@ -24,7 +23,6 @@ on:
       - 'mbus-ffi/**'
       - '!mbus-ffi/dotnet/**'
       - '!mbus-ffi/go/**'
-      - '!mbus-ffi/nodejs/**'
       - '!mbus-ffi/python/**'
       - '!mbus-ffi/examples/c_*/**'
       - 'mbus-core/**'
@@ -74,23 +72,22 @@ jobs:
         with:
           node-version: 24.16.0
           cache: 'npm'
-          cache-dependency-path: mbus-ffi/wasm/package-lock.json
+          cache-dependency-path: mbus-ffi/nodejs/package-lock.json
 
       - name: Install dependencies
-        working-directory: mbus-ffi/wasm
+        working-directory: mbus-ffi/nodejs
         run: npm ci
 
       - name: Build and Verify WASM package
-        working-directory: mbus-ffi/wasm
+        working-directory: mbus-ffi/nodejs
         run: |
-          npm run build
-          npm run verify
+          npm run build:wasm
 
       - name: Install Playwright Chromium
-        working-directory: mbus-ffi/wasm
+        working-directory: mbus-ffi/nodejs
         run: npx playwright install --with-deps chromium
 
       - name: Run WASM browser E2E tests (Playwright + Vitest)
-        working-directory: mbus-ffi/wasm
-        run: npm test
+        working-directory: mbus-ffi/nodejs
+        run: npm run test:wasm
 

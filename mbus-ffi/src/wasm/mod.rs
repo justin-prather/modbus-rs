@@ -6,14 +6,22 @@
 
 #[cfg(feature = "wasm-client")]
 pub mod client;
+#[cfg(feature = "wasm-client")]
+pub mod error_codes;
 #[cfg(feature = "wasm-server")]
 pub mod server;
 
+#[cfg(target_arch = "wasm32")]
+mod wasm_types;
+
 #[cfg(feature = "wasm-client")]
 pub use client::{
-    WasmModbusClient, WasmSerialModbusClient, WasmSerialPortHandle, WasmSerialTransport,
+    WasmModbusClient, WasmSerialModbusClient, WasmSerialPortHandle, WasmRtuTransport, WasmAsciiTransport,
     WasmTcpTransport, request_serial_port,
 };
+
+#[cfg(feature = "wasm-client")]
+pub use error_codes::{ModbusErrorCode, get_modbus_error_code};
 
 #[cfg(feature = "wasm-server")]
 pub use server::{

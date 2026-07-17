@@ -69,7 +69,7 @@ jobs:
       - name: Build native module
         working-directory: mbus-ffi/nodejs
         shell: bash
-        run: npx napi build --platform --release --target ${{ matrix.settings.target }} --features nodejs-full --manifest-path ../Cargo.toml --js index.js --dts index.d.ts --output-dir . && node scripts/postbuild.js
+        run: npx napi build --platform --release --target ${{ matrix.settings.target }} --features nodejs-full --manifest-path ../Cargo.toml --js index.js --dts index.d.ts --output-dir dist && node scripts/postbuild.js
         env:
           CARGO_BUILD_TARGET: ${{ matrix.settings.target }}
 
@@ -87,6 +87,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -96,6 +104,10 @@ jobs:
       - name: Install dependencies
         working-directory: mbus-ffi/nodejs
         run: npm install
+
+      - name: Build WASM package
+        working-directory: mbus-ffi/nodejs
+        run: npm run build:wasm
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -112,19 +124,19 @@ jobs:
               target_file=$(basename "$bin")
               case "$target_file" in
                 modbus-rs.win32-x64-msvc.node)
-                  cp "$bin" npm/win32-x64-msvc/
+                  cp "$bin" dist/npm/win32-x64-msvc/
                   ;;
                 modbus-rs.linux-x64-gnu.node)
-                  cp "$bin" npm/linux-x64-gnu/
+                  cp "$bin" dist/npm/linux-x64-gnu/
                   ;;
                 modbus-rs.darwin-x64.node)
-                  cp "$bin" npm/darwin-x64/
+                  cp "$bin" dist/npm/darwin-x64/
                   ;;
                 modbus-rs.darwin-arm64.node)
-                  cp "$bin" npm/darwin-arm64/
+                  cp "$bin" dist/npm/darwin-arm64/
                   ;;
                 modbus-rs.linux-arm64-gnu.node)
-                  cp "$bin" npm/linux-arm64-gnu/
+                  cp "$bin" dist/npm/linux-arm64-gnu/
                   ;;
                 *)
                   echo "Unexpected binary artifact: $target_file"
@@ -134,7 +146,7 @@ jobs:
             done
           done
 
-          for pkg_dir in npm/*; do
+          for pkg_dir in dist/npm/*; do
             if [ -d "$pkg_dir" ]; then
               ls -la "$pkg_dir"
             fi
@@ -150,7 +162,7 @@ jobs:
             npm view "$1@$2" version 2>/dev/null || true
           }
 
-          for pkg_dir in npm/*; do
+          for pkg_dir in dist/npm/*; do
             if [ -d "$pkg_dir" ]; then
               pkg_name=$(npm pkg get name --prefix "$pkg_dir" | tr -d '"')
               pkg_version=$(npm pkg get version --prefix "$pkg_dir" | tr -d '"')

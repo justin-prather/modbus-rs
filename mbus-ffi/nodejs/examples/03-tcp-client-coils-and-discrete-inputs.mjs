@@ -7,7 +7,7 @@
  * Run:    node examples/03-tcp-client-coils-and-discrete-inputs.mjs
  */
 
-import { AsyncTcpTransport } from 'modbus-rs';
+import { AsyncTcpTransport, CoilState } from 'modbus-rs';
 
 const HOST = process.env.MODBUS_HOST ?? '127.0.0.1';
 const PORT = Number(process.env.MODBUS_PORT ?? 5502);
@@ -22,11 +22,11 @@ async function main() {
 
   try {
     // FC05 — Write Single Coil
-    await client.writeSingleCoil({ address: 0, value: true });
-    console.log('FC05 wrote coil[0] = true');
+    await client.writeSingleCoil({ address: 0, value: CoilState.On });
+    console.log('FC05 wrote coil[0] = On');
 
     // FC15 — Write Multiple Coils
-    const coilPattern = [true, false, true, true, false, false, true, false];
+    const coilPattern = [CoilState.On, CoilState.Off, CoilState.On, CoilState.On, CoilState.Off, CoilState.Off, CoilState.On, CoilState.Off];
     await client.writeMultipleCoils({ address: 10, values: coilPattern });
     console.log('FC15 wrote coils[10..18]:', coilPattern);
 

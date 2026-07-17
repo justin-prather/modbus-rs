@@ -33,14 +33,17 @@ bindings.
 | 02 | [`02-tcp-client-write-multiple.mjs`](./02-tcp-client-write-multiple.mjs) | TCP client — write multiple registers (FC16) and read back |
 | 03 | [`03-tcp-client-coils-and-discrete-inputs.mjs`](./03-tcp-client-coils-and-discrete-inputs.mjs) | TCP client — coils (FC01/05/15) and discrete inputs (FC02) |
 | 04 | [`04-tcp-client-diagnostics-and-fifo.mjs`](./04-tcp-client-diagnostics-and-fifo.mjs) | TCP client — diagnostics (FC08), exception status (FC07), FIFO (FC18) |
-| 05 | [`05-tcp-client-abort-and-timeout.mjs`](./05-tcp-client-abort-and-timeout.mjs) | TCP client — per-request timeout (AbortSignal coming later) |
+| 05 | [`05-tcp-client-abort-and-timeout.mjs`](./05-tcp-client-abort-and-timeout.mjs) | TCP client — per-request timeout and AbortSignal cancellation |
 | 06 | [`06-tcp-server-basic.mjs`](./06-tcp-server-basic.mjs) | TCP server — in-memory store with handlers for every FC |
 | 07 | [`07-tcp-server-with-traffic-events.mjs`](./07-tcp-server-with-traffic-events.mjs) | TCP server — traffic counters (build with `nodejs-traffic` for full event stream) |
 | 08 | [`08-tcp-gateway.mjs`](./08-tcp-gateway.mjs) | TCP gateway — route by unit ID across multiple downstream servers |
 | 09 | [`09-serial-rtu-client.mjs`](./09-serial-rtu-client.mjs) | Serial client — RTU mode (requires a serial port — see header) |
 | 10 | [`10-serial-rtu-server.mjs`](./10-serial-rtu-server.mjs) | Serial server — RTU mode with simple database & async handlers |
 | 11 | [`11-serial-ascii-client.mjs`](./11-serial-ascii-client.mjs) | Serial client — ASCII mode |
-| 12 | [`12-typescript-client.ts`](./12-typescript-client.ts) | TypeScript example — strongly-typed API |
+| 12 | [`12-typescript-client.ts`](./12-typescript-client.ts) | TypeScript client — strongly-typed API |
+| 13 | [`13-typescript-server.ts`](./13-typescript-server.ts) | TypeScript server — type-safe server handlers |
+| 14 | [`14-typescript-gateway.ts`](./14-typescript-gateway.ts) | TypeScript gateway — type-safe routing config |
+| 15 | [`15-browser-integration.ts`](./15-browser-integration.ts) | Browser/WASM integration — frontend setup |
 
 ## Running examples 01-08 (TCP)
 

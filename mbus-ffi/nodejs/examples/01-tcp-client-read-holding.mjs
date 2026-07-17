@@ -9,7 +9,7 @@
  * Run:    node examples/01-tcp-client-read-holding.mjs
  */
 
-import { AsyncTcpTransport } from 'modbus-rs';
+import { AsyncTcpTransport, CoilState } from 'modbus-rs';
 
 const HOST = process.env.MODBUS_HOST ?? '127.0.0.1';
 const PORT = Number(process.env.MODBUS_PORT ?? 5502);
@@ -55,21 +55,21 @@ async function main() {
     // Write multiple registers (FC16)
     await client.writeMultipleRegisters({
       address: 0,
-      values: [100, 200, 300, 400, 500],
+      values: new Uint16Array([100, 200, 300, 400, 500]),
     });
     console.log('Wrote multiple registers');
 
     // Write single coil (FC05)
     await client.writeSingleCoil({
       address: 0,
-      value: true,
+      value: CoilState.On,
     });
     console.log('Wrote single coil');
 
     // Write multiple coils (FC15)
     await client.writeMultipleCoils({
       address: 0,
-      values: [true, false, true, true, false, false, true, false],
+      values: [CoilState.On, CoilState.Off, CoilState.On, CoilState.On, CoilState.Off, CoilState.Off, CoilState.On, CoilState.Off],
     });
     console.log('Wrote multiple coils');
 

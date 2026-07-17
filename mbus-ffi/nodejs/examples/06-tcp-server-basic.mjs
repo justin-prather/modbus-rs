@@ -10,13 +10,13 @@
  *         node examples/01-tcp-client-read-holding.mjs
  */
 
-import { AsyncTcpModbusServer } from 'modbus-rs';
+import { AsyncTcpModbusServer, CoilState } from 'modbus-rs';
 
 // Simulated memory areas
-const coils = new Array(1000).fill(false);
-const discreteInputs = new Array(1000).fill(false);
-const holdingRegisters = new Array(1000).fill(0);
-const inputRegisters = new Array(1000).fill(0);
+const coils = new Array(1000).fill(CoilState.Off);
+const discreteInputs = new Array(1000).fill(CoilState.Off);
+const holdingRegisters = new Uint16Array(1000);
+const inputRegisters = new Uint16Array(1000);
 
 const PORT = Number(process.env.MODBUS_PORT ?? 5502);
 
@@ -60,13 +60,13 @@ async function main() {
       // Read Holding Registers (FC03)
       onReadHoldingRegisters: (req) => {
         console.log(`Read holding registers: unit=${req.unitId} addr=${req.address} quantity=${req.quantity}`);
-        return holdingRegisters.slice(req.address, req.address + req.quantity);
+        return holdingRegisters.subarray(req.address, req.address + req.quantity);
       },
 
       // Read Input Registers (FC04)
       onReadInputRegisters: (req) => {
         console.log(`Read input registers: unit=${req.unitId} addr=${req.address} quantity=${req.quantity}`);
-        return inputRegisters.slice(req.address, req.address + req.quantity);
+        return inputRegisters.subarray(req.address, req.address + req.quantity);
       },
 
       // Write Single Register (FC06)

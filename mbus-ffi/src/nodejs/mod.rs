@@ -30,6 +30,9 @@
 //! await transport.close();
 //! ```
 
+#[cfg(not(target_arch = "wasm32"))]
+mod node_types;
+
 #[cfg(feature = "nodejs-client")]
 pub mod client_serial;
 #[cfg(feature = "nodejs-client")]
@@ -53,29 +56,3 @@ pub use gateway::*;
 pub use server_serial::*;
 #[cfg(feature = "nodejs-server")]
 pub use server_tcp::*;
-
-use napi_derive::napi;
-
-/// Stable error code: Modbus protocol exception received.
-#[napi]
-pub const MODBUS_ERROR_CODE_EXCEPTION: &str = "MODBUS_EXCEPTION";
-
-/// Stable error code: Request timed out.
-#[napi]
-pub const MODBUS_ERROR_CODE_TIMEOUT: &str = "MODBUS_TIMEOUT";
-
-/// Stable error code: Transport/framing error.
-#[napi]
-pub const MODBUS_ERROR_CODE_TRANSPORT: &str = "MODBUS_TRANSPORT";
-
-/// Stable error code: Invalid argument passed to the API.
-#[napi]
-pub const MODBUS_ERROR_CODE_INVALID_ARGUMENT: &str = "MODBUS_INVALID_ARGUMENT";
-
-/// Stable error code: The connection was closed.
-#[napi]
-pub const MODBUS_ERROR_CODE_CONNECTION_CLOSED: &str = "MODBUS_CONNECTION_CLOSED";
-
-/// Stable error code: Internal library error.
-#[napi]
-pub const MODBUS_ERROR_CODE_INTERNAL: &str = "MODBUS_INTERNAL";

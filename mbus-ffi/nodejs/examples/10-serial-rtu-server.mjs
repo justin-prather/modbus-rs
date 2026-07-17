@@ -33,15 +33,15 @@
  * Run:    PORT=/dev/ttyUSB0 node examples/10-serial-rtu-server.mjs
  */
 
-import { AsyncSerialModbusServer } from 'modbus-rs';
+import { AsyncSerialModbusServer, CoilState } from 'modbus-rs';
 
 const PORT = process.env.PORT ?? '/dev/ttyUSB1';
 
 // Simulated memory areas
-const coils = new Array(100).fill(false);
-const discreteInputs = new Array(100).fill(false);
-const holdingRegisters = new Array(100).fill(0);
-const inputRegisters = new Array(100).fill(0);
+const coils = new Array(100).fill(CoilState.Off);
+const discreteInputs = new Array(100).fill(CoilState.Off);
+const holdingRegisters = new Uint16Array(100);
+const inputRegisters = new Uint16Array(100);
 
 // Initialize some registers with realistic test data
 holdingRegisters[0] = 42;
@@ -49,10 +49,10 @@ holdingRegisters[1] = 100;
 holdingRegisters[2] = 200;
 holdingRegisters[3] = 300;
 inputRegisters[0] = 999;
-coils[0] = true;
-coils[2] = true;
-discreteInputs[0] = true;
-discreteInputs[1] = true;
+coils[0] = CoilState.On;
+coils[2] = CoilState.On;
+discreteInputs[0] = CoilState.On;
+discreteInputs[1] = CoilState.On;
 
 async function main() {
   console.log(`Starting Serial RTU Server on port: ${PORT}`);
@@ -100,15 +100,15 @@ async function main() {
       onReadHoldingRegisters: (req) => {
         console.log(`[Serial Server] Read holding registers: unit=${req.unitId} addr=${req.address} quantity=${req.quantity}`);
         if (req.address + req.quantity > holdingRegisters.length) {
-          return { exception: 2 }; // Illegal Data Address
+          return { exceptionCode: 2 }; // Illegal Data Address
         }
-        return holdingRegisters.slice(req.address, req.address + req.quantity);
+        return holdingRegisters.subarray(req.address, req.address + req.quantity);
       },
 
       // Read Input Registers (FC04)
       onReadInputRegisters: (req) => {
         console.log(`[Serial Server] Read input registers: unit=${req.unitId} addr=${req.address} quantity=${req.quantity}`);
-        return inputRegisters.slice(req.address, req.address + req.quantity);
+        return inputRegisters.subarray(req.address, req.address + req.quantity);
       },
 
       // Write Single Register (FC06)

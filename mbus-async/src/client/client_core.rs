@@ -82,6 +82,7 @@ pub struct AsyncClientCore {
     retry_attempts: Arc<AtomicU8>,
     /// Delay between retry attempts in milliseconds.
     retry_delay_ms: Arc<AtomicU64>,
+    is_closed: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(feature = "traffic")]
     notifier: NotifierStore,
 }
@@ -99,6 +100,7 @@ impl AsyncClientCore {
             request_timeout_ns: Arc::new(AtomicU64::new(30 * 1_000_000_000)), // 30 seconds default
             retry_attempts: Arc::new(AtomicU8::new(0)),
             retry_delay_ms: Arc::new(AtomicU64::new(0)),
+            is_closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             #[cfg(feature = "traffic")]
             notifier,
         }
@@ -109,6 +111,11 @@ impl AsyncClientCore {
         self.retry_attempts.store(attempts, Ordering::Relaxed);
         self.retry_delay_ms
             .store(delay.as_millis() as u64, Ordering::Relaxed);
+    }
+
+    /// Checks if the client is connected to the background task (i.e. the task is still running).
+    pub fn is_connected(&self) -> bool {
+        !self.is_closed.load(Ordering::Relaxed) && !self.cmd_tx.is_closed()
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────
@@ -201,6 +208,7 @@ impl AsyncClientCore {
     /// Drains all pending and queued requests with
     /// [`MbusError::ConnectionClosed`] and terminates the background loop.
     pub async fn shutdown(&self) -> Result<(), AsyncError> {
+        self.is_closed.store(true, Ordering::Relaxed);
         self.cmd_tx
             .send(TaskCommand::Shutdown)
             .await

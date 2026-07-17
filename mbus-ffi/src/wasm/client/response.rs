@@ -15,6 +15,11 @@ pub(crate) enum WasmResponse {
         sub_function: u16,
         data: Vec<u16>,
     },
+    #[cfg(feature = "fifo")]
+    FifoQueue {
+        count: u16,
+        values: Vec<u16>,
+    },
     #[cfg(feature = "diagnostics")]
     DeviceIdentification {
         read_device_id_code: u8,
@@ -31,7 +36,7 @@ impl WasmResponse {
             WasmResponse::BoolArray(vec) => {
                 let arr = Array::new();
                 for &b in &vec {
-                    arr.push(&JsValue::from_bool(b));
+                    arr.push(&JsValue::from_f64(if b { 1.0 } else { 0.0 }));
                 }
                 arr.into()
             }
@@ -48,6 +53,21 @@ impl WasmResponse {
                     arr.push(&js_data.into());
                 }
                 arr.into()
+            }
+            #[cfg(feature = "fifo")]
+            WasmResponse::FifoQueue { count, values } => {
+                let obj = Object::new();
+                let _ = Reflect::set(
+                    &obj,
+                    &JsValue::from_str("count"),
+                    &JsValue::from_f64(count as f64),
+                );
+                let _ = Reflect::set(
+                    &obj,
+                    &JsValue::from_str("values"),
+                    &Uint16Array::from(values.as_slice()).into(),
+                );
+                obj.into()
             }
             #[cfg(feature = "diagnostics")]
             WasmResponse::Diagnostics { sub_function, data } => {

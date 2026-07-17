@@ -19,14 +19,7 @@ use mbus_core::function_codes::public::DiagnosticSubFunction;
 #[cfg(feature = "diagnostics")]
 use mbus_core::models::diagnostic::{ObjectId, ReadDeviceIdCode};
 
-use crate::nodejs::client_tcp::{
-    CreateClientOptions, DeviceIdentificationObject, DeviceIdentificationResponse,
-    DiagnosticsOptions, DiagnosticsResponse, FifoQueueResponse, ReadBitsOptions,
-    ReadDeviceIdentificationOptions, ReadFifoQueueOptions, ReadFileRecordOptions,
-    ReadRegistersOptions, ReadWriteMultipleRegistersOptions, WriteFileRecordOptions,
-    WriteMultipleCoilsOptions, WriteMultipleRegistersOptions, WriteSingleCoilOptions,
-    WriteSingleRegisterOptions,
-};
+use crate::nodejs::node_types::*;
 use crate::nodejs::errors::{
     ERR_MODBUS_INVALID_ARGUMENT, from_async_error, parse_backoff_strategy, to_napi_err,
 };
@@ -46,20 +39,23 @@ pub struct RtuTransportOptions {
     #[doc = "Baud rate (e.g., 9600, 19200, 38400, 57600, 115200)."]
     pub baud_rate: u32,
     #[doc = "Data bits (5, 6, 7, or 8)."]
+    #[napi(ts_type = "5 | 6 | 7 | 8")]
     pub data_bits: Option<u8>,
     #[doc = "Parity (\"none\", \"even\", \"odd\")."]
+    #[napi(ts_type = "'none' | 'even' | 'odd'")]
     pub parity: Option<String>,
     #[doc = "Stop bits (1 or 2)."]
+    #[napi(ts_type = "1 | 2")]
     pub stop_bits: Option<u8>,
     #[doc = "Response timeout in milliseconds."]
     pub response_timeout_ms: Option<u32>,
-    #[doc = "Per-request timeout in milliseconds."]
+    #[doc = "Per-request timeout in milliseconds. Note: This feature is currently ineffective and is reserved for future implementation. A GitHub RFC discussion is open to decide whether to implement or remove it."]
     pub request_timeout_ms: Option<u32>,
     #[doc = "Number of retry attempts on failure (0 = none). Default: 0."]
     pub retry_attempts: Option<u32>,
     #[doc = "Delay between retry attempts in milliseconds."]
     pub retry_delay_ms: Option<u32>,
-    #[doc = "Backoff strategy: \"immediate\", \"fixed\", or \"exponential\". Default: \"immediate\"."]
+    #[doc = "Backoff strategy: \"immediate\", \"fixed\", or \"exponential\". Default: \"immediate\". Note: This feature is currently ineffective and is reserved for future implementation. A GitHub RFC discussion is open to decide whether to implement or remove it."]
     pub retry_backoff_strategy: Option<String>,
 }
 
@@ -72,20 +68,23 @@ pub struct AsciiTransportOptions {
     #[doc = "Baud rate (e.g., 9600, 19200, 38400, 57600, 115200)."]
     pub baud_rate: u32,
     #[doc = "Data bits (5, 6, 7, or 8)."]
+    #[napi(ts_type = "5 | 6 | 7 | 8")]
     pub data_bits: Option<u8>,
     #[doc = "Parity (\"none\", \"even\", \"odd\")."]
+    #[napi(ts_type = "'none' | 'even' | 'odd'")]
     pub parity: Option<String>,
     #[doc = "Stop bits (1 or 2)."]
+    #[napi(ts_type = "1 | 2")]
     pub stop_bits: Option<u8>,
     #[doc = "Response timeout in milliseconds."]
     pub response_timeout_ms: Option<u32>,
-    #[doc = "Per-request timeout in milliseconds."]
+    #[doc = "Per-request timeout in milliseconds. Note: This feature is currently ineffective and is reserved for future implementation. A GitHub RFC discussion is open to decide whether to implement or remove it."]
     pub request_timeout_ms: Option<u32>,
     #[doc = "Number of retry attempts on failure (0 = none). Default: 0."]
     pub retry_attempts: Option<u32>,
     #[doc = "Delay between retry attempts in milliseconds."]
     pub retry_delay_ms: Option<u32>,
-    #[doc = "Backoff strategy: \"immediate\", \"fixed\", or \"exponential\". Default: \"immediate\"."]
+    #[doc = "Backoff strategy: \"immediate\", \"fixed\", or \"exponential\". Default: \"immediate\". Note: This feature is currently ineffective and is reserved for future implementation. A GitHub RFC discussion is open to decide whether to implement or remove it."]
     pub retry_backoff_strategy: Option<String>,
 }
 
@@ -140,35 +139,35 @@ fn parse_stop_bits(bits: u8) -> Result<u8> {
 }
 
 /// Builds a ModbusSerialConfig from RTU options.
-fn build_rtu_config(opts: &RtuTransportOptions) -> Result<ModbusSerialConfig> {
-    let baud_rate = parse_baud_rate(opts.baud_rate)?;
-    let data_bits = opts
+fn build_rtu_config(options: &RtuTransportOptions) -> Result<ModbusSerialConfig> {
+    let baud_rate = parse_baud_rate(options.baud_rate)?;
+    let data_bits = options
         .data_bits
         .map(parse_data_bits)
         .transpose()?
         .unwrap_or(DataBits::Eight);
-    let parity = opts
+    let parity = options
         .parity
         .as_ref()
         .map(|s| parse_parity(s))
         .transpose()?
         .unwrap_or(Parity::None);
-    let stop_bits = opts
+    let stop_bits = options
         .stop_bits
         .map(parse_stop_bits)
         .transpose()?
         .unwrap_or(1);
-    let response_timeout_ms = opts.response_timeout_ms.unwrap_or(1000);
+    let response_timeout_ms = options.response_timeout_ms.unwrap_or(1000);
 
-    let retry_attempts = opts.retry_attempts.unwrap_or(0) as u8;
-    let retry_backoff_strategy = opts
+    let retry_attempts = options.retry_attempts.unwrap_or(0) as u8;
+    let retry_backoff_strategy = options
         .retry_backoff_strategy
         .as_ref()
         .map(|s| parse_backoff_strategy(s))
         .transpose()?
         .unwrap_or(BackoffStrategy::Immediate);
 
-    let port_path = heapless::String::try_from(opts.port_path.as_str())
+    let port_path = heapless::String::try_from(options.port_path.as_str())
         .map_err(|_| napi::Error::new(Status::InvalidArg, "Port path too long (max 64 chars)"))?;
 
     Ok(ModbusSerialConfig {
@@ -187,35 +186,35 @@ fn build_rtu_config(opts: &RtuTransportOptions) -> Result<ModbusSerialConfig> {
 }
 
 /// Builds a ModbusSerialConfig from ASCII options.
-fn build_ascii_config(opts: &AsciiTransportOptions) -> Result<ModbusSerialConfig> {
-    let baud_rate = parse_baud_rate(opts.baud_rate)?;
-    let data_bits = opts
+fn build_ascii_config(options: &AsciiTransportOptions) -> Result<ModbusSerialConfig> {
+    let baud_rate = parse_baud_rate(options.baud_rate)?;
+    let data_bits = options
         .data_bits
         .map(parse_data_bits)
         .transpose()?
         .unwrap_or(DataBits::Eight);
-    let parity = opts
+    let parity = options
         .parity
         .as_ref()
         .map(|s| parse_parity(s))
         .transpose()?
         .unwrap_or(Parity::None);
-    let stop_bits = opts
+    let stop_bits = options
         .stop_bits
         .map(parse_stop_bits)
         .transpose()?
         .unwrap_or(1);
-    let response_timeout_ms = opts.response_timeout_ms.unwrap_or(1000);
+    let response_timeout_ms = options.response_timeout_ms.unwrap_or(1000);
 
-    let retry_attempts = opts.retry_attempts.unwrap_or(0) as u8;
-    let retry_backoff_strategy = opts
+    let retry_attempts = options.retry_attempts.unwrap_or(0) as u8;
+    let retry_backoff_strategy = options
         .retry_backoff_strategy
         .as_ref()
         .map(|s| parse_backoff_strategy(s))
         .transpose()?
         .unwrap_or(BackoffStrategy::Immediate);
 
-    let port_path = heapless::String::try_from(opts.port_path.as_str())
+    let port_path = heapless::String::try_from(options.port_path.as_str())
         .map_err(|_| napi::Error::new(Status::InvalidArg, "Port path too long (max 64 chars)"))?;
 
     Ok(ModbusSerialConfig {
@@ -251,24 +250,24 @@ impl AsyncRtuTransport {
     /// Opens the serial port in RTU mode.
     #[napi(factory)]
     #[doc = "Opens a serial port and establishes a connection in RTU mode."]
-    #[doc = "@param opts Options for the serial RTU transport."]
-    #[doc = "@param opts.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
-    #[doc = "@param opts.baudRate The baud rate for the serial communication."]
+    #[doc = "@param options Options for the serial RTU transport."]
+    #[doc = "@param options.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
+    #[doc = "@param options.baudRate The baud rate for the serial communication."]
     #[doc = "@returns A `Promise` that resolves to an `AsyncRtuTransport` instance."]
-    pub async fn open(opts: RtuTransportOptions) -> Result<AsyncRtuTransport> {
-        let config = build_rtu_config(&opts)?;
+    pub async fn open(options: RtuTransportOptions) -> Result<AsyncRtuTransport> {
+        let config = build_rtu_config(&options)?;
 
         let client = AsyncRtuClient::new_rtu(config)
             .map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
 
         client.connect().await.map_err(from_async_error)?;
 
-        if let Some(timeout_ms) = opts.request_timeout_ms {
+        if let Some(timeout_ms) = options.request_timeout_ms {
             client.set_request_timeout(Duration::from_millis(timeout_ms as u64));
         }
 
-        let retry_attempts = opts.retry_attempts.unwrap_or(0) as u8;
-        let retry_delay = Duration::from_millis(opts.retry_delay_ms.unwrap_or(0) as u64);
+        let retry_attempts = options.retry_attempts.unwrap_or(0) as u8;
+        let retry_delay = Duration::from_millis(options.retry_delay_ms.unwrap_or(0) as u64);
         client.set_retry_options(retry_attempts, retry_delay);
 
         Ok(AsyncRtuTransport {
@@ -290,10 +289,10 @@ impl AsyncRtuTransport {
     #[napi]
     #[doc = "Creates a lightweight device client that communicates through this transport."]
     #[doc = "The client is bound to a specific Modbus unit ID."]
-    #[doc = "@param opts Options specifying the unit ID."]
-    pub fn create_client(&self, opts: CreateClientOptions) -> Result<AsyncSerialModbusClient> {
+    #[doc = "@param options Options specifying the unit ID."]
+    pub fn create_client(&self, options: CreateClientOptions) -> Result<AsyncSerialModbusClient> {
         let client = self.get_client()?;
-        let unit_id = opts.unit_id;
+        let unit_id = options.unit_id;
         UnitIdOrSlaveAddr::new(unit_id).map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
         Ok(AsyncSerialModbusClient {
             inner: client,
@@ -372,24 +371,24 @@ impl AsyncAsciiTransport {
     /// Opens the serial port in ASCII mode.
     #[napi(factory)]
     #[doc = "Opens a serial port and establishes a connection in ASCII mode."]
-    #[doc = "@param opts Options for the serial ASCII transport."]
-    #[doc = "@param opts.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
-    #[doc = "@param opts.baudRate The baud rate for the serial communication."]
+    #[doc = "@param options Options for the serial ASCII transport."]
+    #[doc = "@param options.portPath The path to the serial port (e.g., '/dev/ttyUSB0', 'COM3')."]
+    #[doc = "@param options.baudRate The baud rate for the serial communication."]
     #[doc = "@returns A `Promise` that resolves to an `AsyncAsciiTransport` instance."]
-    pub async fn open(opts: AsciiTransportOptions) -> Result<AsyncAsciiTransport> {
-        let config = build_ascii_config(&opts)?;
+    pub async fn open(options: AsciiTransportOptions) -> Result<AsyncAsciiTransport> {
+        let config = build_ascii_config(&options)?;
 
         let client = AsyncAsciiClient::new_ascii(config)
             .map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
 
         client.connect().await.map_err(from_async_error)?;
 
-        if let Some(timeout_ms) = opts.request_timeout_ms {
+        if let Some(timeout_ms) = options.request_timeout_ms {
             client.set_request_timeout(Duration::from_millis(timeout_ms as u64));
         }
 
-        let retry_attempts = opts.retry_attempts.unwrap_or(0) as u8;
-        let retry_delay = Duration::from_millis(opts.retry_delay_ms.unwrap_or(0) as u64);
+        let retry_attempts = options.retry_attempts.unwrap_or(0) as u8;
+        let retry_delay = Duration::from_millis(options.retry_delay_ms.unwrap_or(0) as u64);
         client.set_retry_options(retry_attempts, retry_delay);
 
         Ok(AsyncAsciiTransport {
@@ -411,10 +410,10 @@ impl AsyncAsciiTransport {
     #[napi]
     #[doc = "Creates a lightweight device client that communicates through this transport."]
     #[doc = "The client is bound to a specific Modbus unit ID."]
-    #[doc = "@param opts Options specifying the unit ID."]
-    pub fn create_client(&self, opts: CreateClientOptions) -> Result<AsyncSerialModbusClient> {
+    #[doc = "@param options Options specifying the unit ID."]
+    pub fn create_client(&self, options: CreateClientOptions) -> Result<AsyncSerialModbusClient> {
         let client = self.get_client()?;
-        let unit_id = opts.unit_id;
+        let unit_id = options.unit_id;
         UnitIdOrSlaveAddr::new(unit_id).map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
         Ok(AsyncSerialModbusClient {
             inner: client,
@@ -488,26 +487,40 @@ pub struct AsyncSerialModbusClient {
 
 #[napi]
 impl AsyncSerialModbusClient {
+    /// Returns whether there are pending requests.
+    #[napi(getter, js_name = "pendingRequests")]
+    #[doc = "Checks if there are any Modbus requests currently in-flight for this client."]
+    pub fn pending_requests(&self) -> bool {
+        self.inner.has_pending_requests()
+    }
+
+    /// Checks if the client is connected to the transport.
+    #[napi(js_name = "isConnected")]
+    #[doc = "Checks if the underlying client transport connection is active."]
+    pub fn is_connected(&self) -> bool {
+        self.inner.is_connected()
+    }
+
     // ── Register methods ─────────────────────────────────────────────────────
 
     /// Reads holding registers (FC03).
-    #[napi(ts_return_type = "Promise<number[]>")]
+    #[napi(ts_return_type = "Promise<Uint16Array>")]
     #[cfg(feature = "holding-registers")]
     #[doc = "Reads one or more holding registers (Function Code 03)."]
-    #[doc = "@param opts Options for reading registers."]
-    #[doc = "@param opts.address The starting register address."]
-    #[doc = "@param opts.quantity The number of registers to read."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for reading registers."]
+    #[doc = "@param options.address The starting register address."]
+    #[doc = "@param options.quantity The number of registers to read."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn read_holding_registers(
         &self,
         env: Env,
-        opts: ReadRegistersOptions<'_>,
-    ) -> Result<PromiseRaw<'static, Vec<u16>>> {
+        options: ReadRegistersOptions<'_>,
+    ) -> Result<PromiseRaw<'static, napi::bindgen_prelude::Uint16Array>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let quantity = opts.quantity;
+        let address = options.address;
+        let quantity = options.quantity;
 
         let promise = env.spawn_future(async move {
             let fut = client.read_holding_registers(unit_id, address, quantity);
@@ -521,29 +534,29 @@ impl AsyncSerialModbusClient {
             } else {
                 fut.await.map_err(from_async_error)?
             };
-            Ok(regs.values()[..regs.quantity() as usize].to_vec())
+            Ok(napi::bindgen_prelude::Uint16Array::from(regs.values()[..regs.quantity() as usize].to_vec()))
         })?;
         Ok(unsafe { extend_lifetime(promise) })
     }
 
     /// Reads input registers (FC04).
-    #[napi(ts_return_type = "Promise<number[]>")]
+    #[napi(ts_return_type = "Promise<Uint16Array>")]
     #[cfg(feature = "input-registers")]
     #[doc = "Reads one or more input registers (Function Code 04)."]
-    #[doc = "@param opts Options for reading registers."]
-    #[doc = "@param opts.address The starting register address."]
-    #[doc = "@param opts.quantity The number of registers to read."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for reading registers."]
+    #[doc = "@param options.address The starting register address."]
+    #[doc = "@param options.quantity The number of registers to read."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn read_input_registers(
         &self,
         env: Env,
-        opts: ReadRegistersOptions<'_>,
-    ) -> Result<PromiseRaw<'static, Vec<u16>>> {
+        options: ReadRegistersOptions<'_>,
+    ) -> Result<PromiseRaw<'static, napi::bindgen_prelude::Uint16Array>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let quantity = opts.quantity;
+        let address = options.address;
+        let quantity = options.quantity;
 
         let promise = env.spawn_future(async move {
             let fut = client.read_input_registers(unit_id, address, quantity);
@@ -557,7 +570,7 @@ impl AsyncSerialModbusClient {
             } else {
                 fut.await.map_err(from_async_error)?
             };
-            Ok(regs.values()[..regs.quantity() as usize].to_vec())
+            Ok(napi::bindgen_prelude::Uint16Array::from(regs.values()[..regs.quantity() as usize].to_vec()))
         })?;
         Ok(unsafe { extend_lifetime(promise) })
     }
@@ -566,20 +579,20 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<void>")]
     #[cfg(feature = "holding-registers")]
     #[doc = "Writes a single holding register (Function Code 06)."]
-    #[doc = "@param opts Options for writing a single register."]
-    #[doc = "@param opts.address The register address."]
-    #[doc = "@param opts.value The 16-bit value to write."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for writing a single register."]
+    #[doc = "@param options.address The register address."]
+    #[doc = "@param options.value The 16-bit value to write."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn write_single_register(
         &self,
         env: Env,
-        opts: WriteSingleRegisterOptions<'_>,
+        options: WriteSingleRegisterOptions<'_>,
     ) -> Result<PromiseRaw<'static, ()>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let value = opts.value;
+        let address = options.address;
+        let value = options.value;
 
         let promise = env.spawn_future(async move {
             let fut = client.write_single_register(unit_id, address, value);
@@ -602,20 +615,20 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<void>")]
     #[cfg(feature = "holding-registers")]
     #[doc = "Writes multiple consecutive holding registers (Function Code 16)."]
-    #[doc = "@param opts Options for writing multiple registers."]
-    #[doc = "@param opts.address The starting register address."]
-    #[doc = "@param opts.values An array of 16-bit values to write."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for writing multiple registers."]
+    #[doc = "@param options.address The starting register address."]
+    #[doc = "@param options.values An array of 16-bit values to write."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn write_multiple_registers(
         &self,
         env: Env,
-        opts: WriteMultipleRegistersOptions<'_>,
+        options: WriteMultipleRegistersOptions<'_>,
     ) -> Result<PromiseRaw<'static, ()>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let values = opts.values;
+        let address = options.address;
+        let values = options.values.to_vec();
 
         let promise = env.spawn_future(async move {
             let fut = client.write_multiple_registers(unit_id, address, &values);
@@ -635,27 +648,27 @@ impl AsyncSerialModbusClient {
     }
 
     /// Reads and writes multiple registers atomically (FC23).
-    #[napi(ts_return_type = "Promise<number[]>")]
+    #[napi(ts_return_type = "Promise<Uint16Array>")]
     #[cfg(feature = "holding-registers")]
     #[doc = "Performs an atomic read/write operation on multiple registers (Function Code 23)."]
-    #[doc = "@param opts Options for the read/write operation."]
-    #[doc = "@param opts.read_address The starting address for the read operation."]
-    #[doc = "@param opts.read_quantity The number of registers to read."]
-    #[doc = "@param opts.write_address The starting address for the write operation."]
-    #[doc = "@param opts.write_values An array of 16-bit values to write."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for the read/write operation."]
+    #[doc = "@param options.read_address The starting address for the read operation."]
+    #[doc = "@param options.read_quantity The number of registers to read."]
+    #[doc = "@param options.write_address The starting address for the write operation."]
+    #[doc = "@param options.write_values An array of 16-bit values to write."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn read_write_multiple_registers(
         &self,
         env: Env,
-        opts: ReadWriteMultipleRegistersOptions<'_>,
-    ) -> Result<PromiseRaw<'static, Vec<u16>>> {
+        options: ReadWriteMultipleRegistersOptions<'_>,
+    ) -> Result<PromiseRaw<'static, napi::bindgen_prelude::Uint16Array>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let read_address = opts.read_address;
-        let read_quantity = opts.read_quantity;
-        let write_address = opts.write_address;
-        let write_values = opts.write_values;
+        let read_address = options.read_address;
+        let read_quantity = options.read_quantity;
+        let write_address = options.write_address;
+        let write_values = options.write_values.to_vec();
 
         let promise = env.spawn_future(async move {
             let fut = client.read_write_multiple_registers(
@@ -675,7 +688,7 @@ impl AsyncSerialModbusClient {
             } else {
                 fut.await.map_err(from_async_error)?
             };
-            Ok(regs.values()[..regs.quantity() as usize].to_vec())
+            Ok(napi::bindgen_prelude::Uint16Array::from(regs.values()[..regs.quantity() as usize].to_vec()))
         })?;
         Ok(unsafe { extend_lifetime(promise) })
     }
@@ -683,23 +696,30 @@ impl AsyncSerialModbusClient {
     // ── Coil methods ─────────────────────────────────────────────────────────
 
     /// Reads coils (FC01).
-    #[napi(ts_return_type = "Promise<boolean[]>")]
+    #[napi(ts_return_type = "Promise<CoilState[]>")]
     #[cfg(feature = "coils")]
     #[doc = "Reads the status of one or more coils (Function Code 01)."]
-    #[doc = "@param opts Options for reading bits."]
-    #[doc = "@param opts.address The starting coil address."]
-    #[doc = "@param opts.quantity The number of coils to read."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param {ReadBitsOptions} options - Options for reading bits."]
+    #[doc = "@param {number} options.address - The starting coil address."]
+    #[doc = "@param {number} options.quantity - The number of coils to read."]
+    #[doc = "@param {AbortSignal} [options.signal] - An optional cancellation signal."]
+    #[doc = "@returns {Promise<CoilState[]>} - A promise that resolves to an array representing the coil states."]
+    #[doc = ""]
+    #[doc = "@example"]
+    #[doc = "```javascript"]
+    #[doc = "const coils = await client.readCoils({ address: 0, quantity: 8 });"]
+    #[doc = "console.log(coils); // e.g., [1, 0, 1, ...]"]
+    #[doc = "```"]
     pub fn read_coils(
         &self,
         env: Env,
-        opts: ReadBitsOptions<'_>,
-    ) -> Result<PromiseRaw<'static, Vec<bool>>> {
+        options: ReadBitsOptions<'_>,
+    ) -> Result<PromiseRaw<'static, Vec<u8>>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let quantity = opts.quantity;
+        let address = options.address;
+        let quantity = options.quantity;
 
         let promise = env.spawn_future(async move {
             let fut = client.read_multiple_coils(unit_id, address, quantity);
@@ -716,7 +736,7 @@ impl AsyncSerialModbusClient {
 
             let mut result = Vec::with_capacity(quantity as usize);
             for i in 0..quantity {
-                result.push(coils.value(address + i).unwrap_or(false));
+                result.push(if coils.value(address + i).unwrap_or(false) { 1 } else { 0 });
             }
             Ok(result)
         })?;
@@ -727,20 +747,26 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<void>")]
     #[cfg(feature = "coils")]
     #[doc = "Writes a single coil (Function Code 05)."]
-    #[doc = "@param opts Options for writing a single coil."]
-    #[doc = "@param opts.address The coil address."]
-    #[doc = "@param opts.value The boolean value to write (true for ON, false for OFF)."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param {WriteSingleCoilOptions} options - Options for writing a single coil."]
+    #[doc = "@param {number} options.address - The coil address."]
+    #[doc = "@param {CoilState} options.value - The coil state to write."]
+    #[doc = "@param {AbortSignal} [options.signal] - An optional cancellation signal."]
+    #[doc = "@returns {Promise<void>} - A promise that resolves when the write is complete."]
+    #[doc = ""]
+    #[doc = "@example"]
+    #[doc = "```javascript"]
+    #[doc = "await client.writeSingleCoil({ address: 10, value: 1 });"]
+    #[doc = "```"]
     pub fn write_single_coil(
         &self,
         env: Env,
-        opts: WriteSingleCoilOptions<'_>,
+        options: WriteSingleCoilOptions<'_>,
     ) -> Result<PromiseRaw<'static, ()>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let value = opts.value;
+        let address = options.address;
+        let value = options.value != 0;
 
         let promise = env.spawn_future(async move {
             let fut = client.write_single_coil(unit_id, address, value);
@@ -763,22 +789,28 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<void>")]
     #[cfg(feature = "coils")]
     #[doc = "Writes multiple consecutive coils (Function Code 15)."]
-    #[doc = "@param opts Options for writing multiple coils."]
-    #[doc = "@param opts.address The starting coil address."]
-    #[doc = "@param opts.values An array of boolean values to write."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param {WriteMultipleCoilsOptions} options - Options for writing multiple coils."]
+    #[doc = "@param {number} options.address - The starting coil address."]
+    #[doc = "@param {CoilState[]} options.values - An array of coil states to write."]
+    #[doc = "@param {AbortSignal} [options.signal] - An optional cancellation signal."]
+    #[doc = "@returns {Promise<void>} - A promise that resolves when the write is complete."]
+    #[doc = ""]
+    #[doc = "@example"]
+    #[doc = "```javascript"]
+    #[doc = "await client.writeMultipleCoils({ address: 20, values: [1, 0, 1, 1] });"]
+    #[doc = "```"]
     pub fn write_multiple_coils(
         &self,
         env: Env,
-        opts: WriteMultipleCoilsOptions<'_>,
+        options: WriteMultipleCoilsOptions<'_>,
     ) -> Result<PromiseRaw<'static, ()>> {
         use mbus_core::models::coil::Coils;
 
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let values = opts.values;
+        let address = options.address;
+        let values = options.values;
 
         // Build Coils from bool array synchronously
         let qty = values.len() as u16;
@@ -787,7 +819,7 @@ impl AsyncSerialModbusClient {
 
         for (i, &value) in values.iter().enumerate() {
             coils
-                .set_value(address + i as u16, value)
+                .set_value(address + i as u16, value != 0)
                 .map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
         }
 
@@ -811,23 +843,29 @@ impl AsyncSerialModbusClient {
     // ── Discrete inputs ──────────────────────────────────────────────────────
 
     /// Reads discrete inputs (FC02).
-    #[napi(ts_return_type = "Promise<boolean[]>")]
+    #[napi(ts_return_type = "Promise<DiscreteInputState[]>")]
     #[cfg(feature = "discrete-inputs")]
     #[doc = "Reads the status of one or more discrete inputs (Function Code 02)."]
-    #[doc = "@param opts Options for reading bits."]
-    #[doc = "@param opts.address The starting discrete input address."]
-    #[doc = "@param opts.quantity The number of discrete inputs to read."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param {ReadBitsOptions} options - Options for reading bits."]
+    #[doc = "@param {number} options.address - The starting discrete input address."]
+    #[doc = "@param {number} options.quantity - The number of discrete inputs to read."]
+    #[doc = "@param {AbortSignal} [options.signal] - An optional cancellation signal."]
+    #[doc = "@returns {Promise<DiscreteInputState[]>} - A promise that resolves to an array of states."]
+    #[doc = ""]
+    #[doc = "@example"]
+    #[doc = "```javascript"]
+    #[doc = "const inputs = await client.readDiscreteInputs({ address: 0, quantity: 4 });"]
+    #[doc = "```"]
     pub fn read_discrete_inputs(
         &self,
         env: Env,
-        opts: ReadBitsOptions<'_>,
-    ) -> Result<PromiseRaw<'static, Vec<bool>>> {
+        options: ReadBitsOptions<'_>,
+    ) -> Result<PromiseRaw<'static, Vec<u8>>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
-        let quantity = opts.quantity;
+        let address = options.address;
+        let quantity = options.quantity;
 
         let promise = env.spawn_future(async move {
             let fut = client.read_discrete_inputs(unit_id, address, quantity);
@@ -844,7 +882,7 @@ impl AsyncSerialModbusClient {
 
             let mut result = Vec::with_capacity(quantity as usize);
             for i in 0..quantity {
-                result.push(inputs.value(address + i).unwrap_or(false));
+                result.push(if inputs.value(address + i).unwrap_or(false) { 1 } else { 0 });
             }
             Ok(result)
         })?;
@@ -857,18 +895,23 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<FifoQueueResponse>")]
     #[cfg(feature = "fifo")]
     #[doc = "Reads from a FIFO queue register (Function Code 24)."]
-    #[doc = "@param opts Options for reading the FIFO queue."]
-    #[doc = "@param opts.address The FIFO pointer address."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for reading the FIFO queue."]
+    #[doc = "@param options.address The FIFO pointer address."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = ""]
+    #[doc = "@example"]
+    #[doc = "```javascript"]
+    #[doc = "const fifoContents = await client.readFifoQueue({ address: 42 });"]
+    #[doc = "```"]
     pub fn read_fifo_queue(
         &self,
         env: Env,
-        opts: ReadFifoQueueOptions<'_>,
+        options: ReadFifoQueueOptions<'_>,
     ) -> Result<PromiseRaw<'static, FifoQueueResponse>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
-        let address = opts.address;
+        let address = options.address;
 
         let promise = env.spawn_future(async move {
             let fut = client.read_fifo_queue(unit_id, address);
@@ -884,7 +927,7 @@ impl AsyncSerialModbusClient {
             };
             let values = fifo.queue().to_vec();
             let count = values.len() as u16;
-            Ok(FifoQueueResponse { count, values })
+            Ok(FifoQueueResponse { count, values: Uint16Array::from(values) })
         })?;
         Ok(unsafe { extend_lifetime(promise) })
     }
@@ -892,24 +935,33 @@ impl AsyncSerialModbusClient {
     // ── File record ──────────────────────────────────────────────────────────
 
     /// Reads file records (FC20).
-    #[napi(ts_return_type = "Promise<number[][]>")]
+    #[napi(ts_return_type = "Promise<Uint16Array[]>")]
     #[cfg(feature = "file-record")]
     #[doc = "Reads one or more file records (Function Code 20)."]
-    #[doc = "@param opts Options for reading file records."]
-    #[doc = "@param opts.requests An array of file record read sub-requests."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for reading file records."]
+    #[doc = "@param options.requests An array of file record read sub-requests."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = ""]
+    #[doc = "@example"]
+    #[doc = "```javascript"]
+    #[doc = "const records = await client.readFileRecord({"]
+    #[doc = "  requests: ["]
+    #[doc = "    { fileNumber: 4, recordNumber: 1, recordLength: 2 }"]
+    #[doc = "  ]"]
+    #[doc = "});"]
+    #[doc = "```"]
     pub fn read_file_record(
         &self,
         env: Env,
-        opts: ReadFileRecordOptions<'_>,
-    ) -> Result<PromiseRaw<'static, Vec<Vec<u16>>>> {
+        options: ReadFileRecordOptions<'_>,
+    ) -> Result<PromiseRaw<'static, Vec<Uint16Array>>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
 
         // Build SubRequest from options
         let mut sub_request = SubRequest::new();
-        for req in &opts.requests {
+        for req in &options.requests {
             sub_request
                 .add_read_sub_request(req.file_number, req.record_number, req.record_length)
                 .map_err(|e| {
@@ -930,14 +982,14 @@ impl AsyncSerialModbusClient {
                 fut.await.map_err(from_async_error)?
             };
 
-            // Convert each sub-response to Vec<u16>
-            let mut output: Vec<Vec<u16>> = Vec::new();
+            // Convert each sub-response to Uint16Array
+            let mut output: Vec<Uint16Array> = Vec::new();
             for params in result {
                 let words: Vec<u16> = params
                     .record_data
                     .map(|v| v.into_iter().collect())
                     .unwrap_or_default();
-                output.push(words);
+                output.push(Uint16Array::from(words));
             }
             Ok(output)
         })?;
@@ -948,25 +1000,25 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<void>")]
     #[cfg(feature = "file-record")]
     #[doc = "Writes one or more file records (Function Code 21)."]
-    #[doc = "@param opts Options for writing file records."]
-    #[doc = "@param opts.requests An array of file record write sub-requests."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for writing file records."]
+    #[doc = "@param options.requests An array of file record write sub-requests."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn write_file_record(
         &self,
         env: Env,
-        opts: WriteFileRecordOptions<'_>,
+        options: WriteFileRecordOptions<'_>,
     ) -> Result<PromiseRaw<'static, ()>> {
         use mbus_core::data_unit::common::MAX_PDU_DATA_LEN;
 
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
 
         // Build SubRequest with data
         let mut sub_request = SubRequest::new();
-        for req in &opts.requests {
+        for req in &options.requests {
             let record_data: heapless::Vec<u16, MAX_PDU_DATA_LEN> =
-                heapless::Vec::from_slice(&req.record_data)
+                heapless::Vec::from_slice(req.record_data.as_ref())
                     .map_err(|_| napi::Error::new(Status::InvalidArg, "Record data too large"))?;
 
             sub_request
@@ -1015,29 +1067,29 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<DiagnosticsResponse>")]
     #[cfg(feature = "diagnostics")]
     #[doc = "Executes a diagnostic function on the device (Function Code 08)."]
-    #[doc = "@param opts Options for the diagnostics request."]
-    #[doc = "@param opts.sub_function The diagnostic sub-function code."]
-    #[doc = "@param opts.data Data to be sent with the request."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for the diagnostics request."]
+    #[doc = "@param options.sub_function The diagnostic sub-function code."]
+    #[doc = "@param options.data Data to be sent with the request."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn diagnostics(
         &self,
         env: Env,
-        opts: DiagnosticsOptions<'_>,
+        options: DiagnosticsOptions<'_>,
     ) -> Result<PromiseRaw<'static, DiagnosticsResponse>> {
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
 
-        let sub_function = DiagnosticSubFunction::try_from(opts.sub_function).map_err(|_| {
+        let sub_function = DiagnosticSubFunction::try_from(options.sub_function).map_err(|_| {
             napi::Error::new(
                 Status::InvalidArg,
                 format!(
                     "Invalid diagnostic sub-function code: {}",
-                    opts.sub_function
+                    options.sub_function
                 ),
             )
         })?;
-        let data = opts.data;
+        let data = options.data.map(|d| d.to_vec()).unwrap_or_default();
 
         let promise = env.spawn_future(async move {
             let fut = client.diagnostics(unit_id, sub_function, &data);
@@ -1054,7 +1106,7 @@ impl AsyncSerialModbusClient {
 
             Ok(DiagnosticsResponse {
                 sub_function: u16::from(result.sub_function),
-                data: result.data,
+                data: Uint16Array::from(result.data),
             })
         })?;
         Ok(unsafe { extend_lifetime(promise) })
@@ -1064,29 +1116,30 @@ impl AsyncSerialModbusClient {
     #[napi(ts_return_type = "Promise<DeviceIdentificationResponse>")]
     #[cfg(feature = "diagnostics")]
     #[doc = "Reads device identification information (Function Code 43, MEI 14)."]
-    #[doc = "@param opts Options for reading device identification."]
-    #[doc = "@param opts.read_device_id_code The category of objects to read (e.g., basic, regular)."]
-    #[doc = "@param opts.object_id The ID of the first object to read."]
-    #[doc = "@param opts.signal An optional `AbortSignal` to cancel the operation."]
+    #[doc = "@param options Options for reading device identification."]
+    #[doc = "@param options.read_device_id_code The category of objects to read (e.g., basic, regular)."]
+    #[doc = "@param options.object_id The ID of the first object to read."]
+    #[doc = "@param options.signal An optional `AbortSignal` to cancel the operation."]
     pub fn read_device_identification(
         &self,
         env: Env,
-        opts: ReadDeviceIdentificationOptions<'_>,
+        options: ReadDeviceIdentificationOptions<'_>,
     ) -> Result<PromiseRaw<'static, DeviceIdentificationResponse>> {
         use mbus_core::models::diagnostic::ConformityLevel;
 
         let client = self.inner.clone();
-        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, opts.signal)?;
+        let abort_rx = crate::nodejs::errors::setup_abort_listener(&env, options.signal)?;
         let unit_id = self.unit_id;
 
+        let read_device_id_code_u8 = options.read_device_id_code.unwrap_or(1);
         let read_device_id_code =
-            ReadDeviceIdCode::try_from(opts.read_device_id_code).map_err(|_| {
+            ReadDeviceIdCode::try_from(read_device_id_code_u8).map_err(|_| {
                 napi::Error::new(
                     Status::InvalidArg,
-                    format!("Invalid read device ID code: {}", opts.read_device_id_code),
+                    format!("Invalid read device ID code: {}", read_device_id_code_u8),
                 )
             })?;
-        let object_id = ObjectId::from(opts.object_id);
+        let object_id = ObjectId::from(options.object_id.unwrap_or(0));
 
         let promise = env.spawn_future(async move {
             let fut = client.read_device_identification(unit_id, read_device_id_code, object_id);

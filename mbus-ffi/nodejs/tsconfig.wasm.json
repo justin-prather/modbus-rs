@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "lib": [
+      "ESNext",
+      "DOM",
+      "ESNext.Disposable"
+    ],
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "modbus-rs": [
+        "./dist/index.browser.d.ts"
+      ],
+      "modbus-rs/web": [
+        "./dist/index.web.d.ts"
+      ],
+      "modbus-rs-wasm": [
+        "./dist/npm/wasm/dist/bundler/modbus-rs.d.ts"
+      ],
+      "modbus-rs-wasm/web": [
+        "./dist/npm/wasm/dist/web/modbus-rs.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "dist/index.browser.d.ts",
+    "examples/15-browser-integration.ts",
+    "__test__/wasm/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "target"
+  ]
+}

@@ -114,7 +114,7 @@ jobs:
 
       - name: Build native module
         working-directory: mbus-ffi/nodejs
-        run: npx napi build --platform --release --target ${{ matrix.settings.target }} --features nodejs-full --manifest-path ../Cargo.toml --js index.js --dts index.d.ts --output-dir . && node scripts/postbuild.js
+        run: npx napi build --platform --release --target ${{ matrix.settings.target }} --features nodejs-full --manifest-path ../Cargo.toml --js index.js --dts index.d.ts --output-dir dist && node scripts/postbuild.js
         shell: bash
         env:
           CARGO_BUILD_TARGET: ${{ matrix.settings.target }}
@@ -157,8 +157,9 @@ jobs:
         working-directory: mbus-ffi/nodejs
         shell: bash
         run: |
+          mkdir -p dist
           for dir in artifacts/bindings-*; do
-            cp "$dir"/*.node . 2>/dev/null || true
+            cp "$dir"/*.node dist/ 2>/dev/null || true
           done
 
       - name: Install dependencies

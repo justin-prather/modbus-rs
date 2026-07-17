@@ -22,7 +22,7 @@ async function main() {
 
   try {
     const values = [10, 20, 30, 40, 50, 60, 70, 80];
-    await client.writeMultipleRegisters({ address: 100, values });
+    await client.writeMultipleRegisters({ address: 100, values: new Uint16Array(values) });
     console.log(`Wrote ${values.length} registers @ 100:`, values);
 
     const readBack = await client.readHoldingRegisters({

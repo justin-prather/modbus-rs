@@ -27,21 +27,20 @@ const holdingRegisters = new Uint16Array(1000);
 
 async function main(): Promise<void> {
   const handlers: ServerHandlers = {
-    // Read Holding Registers (FC03)
-    onReadHoldingRegisters: (req: ReadHoldingRegistersRequest): number[] | ModbusException => {
+    onReadHoldingRegisters: (req: ReadHoldingRegistersRequest): Uint16Array | ModbusException => {
       console.log(`Read registers: unit=${req.unitId} addr=${req.address} qty=${req.quantity}`);
       if (req.address + req.quantity > holdingRegisters.length) {
         // Return Modbus Exception 2 (Illegal Data Address)
-        return { exception: 2 };
+        return { exceptionCode: 2 };
       }
-      return Array.from(holdingRegisters.slice(req.address, req.address + req.quantity));
+      return holdingRegisters.subarray(req.address, req.address + req.quantity);
     },
 
     // Write Multiple Registers (FC16)
     onWriteMultipleRegisters: (req: WriteMultipleRegistersRequest): void | ModbusException => {
       console.log(`Write registers: unit=${req.unitId} addr=${req.address} count=${req.values.length}`);
       if (req.address + req.values.length > holdingRegisters.length) {
-        return { exception: 2 };
+        return { exceptionCode: 2 };
       }
       for (let i = 0; i < req.values.length; i++) {
         holdingRegisters[req.address + i] = req.values[i];

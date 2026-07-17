@@ -36,7 +36,7 @@
  * Run:    PORT=/dev/ttyUSB0 node examples/09-serial-rtu-client.mjs
  */
 
-import { AsyncRtuTransport } from 'modbus-rs';
+import { AsyncRtuTransport, CoilState } from 'modbus-rs';
 
 const PORT = process.env.PORT ?? '/dev/cu.usbserial-A1010CA6';
 
@@ -54,7 +54,7 @@ async function main() {
 
   console.log("Connection success");
   try {
-    await client_unit_1.writeMultipleCoils({ address: 0, quantity: 3, values: [true, false, false] })
+    await client_unit_1.writeMultipleCoils({ address: 0, values: [CoilState.On, CoilState.Off, CoilState.Off] })
     const registers = await client_unit_1.readHoldingRegisters({
       address: 0,
       quantity: 1,
@@ -67,7 +67,6 @@ async function main() {
     await client_unit_1.writeSingleRegister({ address: 0, value: 1234 });
     console.log('Wrote register');
 
-    await new Promise((r) => setTimeout(r, 2000));
 
     const coils_2 = await client_unit_2.readCoils({ address: 0, quantity: 3 });
     console.log('Coils:', coils_2);

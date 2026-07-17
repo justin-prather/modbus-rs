@@ -4,12 +4,15 @@ node_modules/
 __test__/
 examples/
 scripts/
+src/
 tsconfig.json
+tsconfig.wasm.json
+vitest.config.ts
 .gitignore
 .npmignore
 
-# Platform stub READMEs are part of the per-triple sub-packages, not the umbrella package.
-npm/
+# Sub-packages are published independently, not bundled with the main package.
+dist/npm/
 
 # Rust source — the consumer doesn't need it.
 *.rs

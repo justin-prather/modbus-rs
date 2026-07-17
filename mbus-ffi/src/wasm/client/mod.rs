@@ -12,12 +12,12 @@
 
 mod command;
 pub(crate) mod helpers;
-mod net_client;
+mod client_tcp;
 mod response;
-mod serial_client;
+mod client_serial;
 mod task;
 
-pub use net_client::{WasmModbusClient, WasmTcpTransport};
-pub use serial_client::{
-    WasmSerialModbusClient, WasmSerialPortHandle, WasmSerialTransport, request_serial_port,
+pub use client_tcp::{WasmModbusClient, WasmTcpTransport};
+pub use client_serial::{
+    WasmSerialModbusClient, WasmSerialPortHandle, WasmRtuTransport, WasmAsciiTransport, request_serial_port,
 };

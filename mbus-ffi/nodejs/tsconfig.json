@@ -11,9 +11,23 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "declaration": false,
-    "lib": ["ESNext"],
-    "types": ["node"]
+    "lib": [
+      "ESNext",
+      "ESNext.Disposable"
+    ],
+    "types": [
+      "node"
+    ]
   },
-  "include": ["index.d.ts", "examples/**/*.ts", "__test__/**/*.ts"],
-  "exclude": ["node_modules", "target"]
+  "include": [
+    "dist/index.d.ts",
+    "examples/**/*.ts",
+    "__test__/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "target",
+    "examples/15-browser-integration.ts",
+    "__test__/wasm/**/*"
+  ]
 }

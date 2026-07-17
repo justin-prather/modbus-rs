@@ -33,7 +33,7 @@ async function main() {
 
     await client.writeMultipleRegisters({
       address: 0,
-      values: [0xAA55, 0x1234, 0x5678, 0x9ABC],
+      values: new Uint16Array([0xAA55, 0x1234, 0x5678, 0x9ABC]),
     });
     console.log('Wrote 4 registers');
   } finally {

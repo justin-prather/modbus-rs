@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const dtsPath = path.join(__dirname, '../index.d.ts');
-const jsPath = path.join(__dirname, '../index.js');
+const dtsPath = path.join(__dirname, '../dist/index.d.ts');
+const jsPath = path.join(__dirname, '../dist/index.js');
 
 if (!fs.existsSync(dtsPath)) {
   console.error('index.d.ts not found');
@@ -11,27 +11,31 @@ if (!fs.existsSync(dtsPath)) {
 
 let dts = fs.readFileSync(dtsPath, 'utf8');
 
-// 1. Replace signal?: object with signal?: AbortSignal
+// 2. Replace signal?: object with signal?: AbortSignal
 dts = dts.replace(/signal\?: object/g, 'signal?: AbortSignal');
 
-// 2. Replace handlers: object with handlers: ServerHandlers in bind methods
-dts = dts.replace(/static bindRtu\(opts: SerialServerOptions, handlers: object\)/g, 'static bindRtu(opts: SerialServerOptions, handlers: ServerHandlers)');
-dts = dts.replace(/static bindAscii\(opts: SerialServerOptions, handlers: object\)/g, 'static bindAscii(opts: SerialServerOptions, handlers: ServerHandlers)');
-dts = dts.replace(/static bind\(opts: TcpServerOptions, handlers: object\)/g, 'static bind(opts: TcpServerOptions, handlers: ServerHandlers)');
+// 3. Align pendingRequests getter with WASM readonly property syntax
+dts = dts.replace(/get pendingRequests\(\): boolean/g, 'readonly pendingRequests: boolean');
 
-// 4. Remove count: number from FifoQueueResponse interface
-dts = dts.replace(
-  /export interface FifoQueueResponse {[\s\S]*?count: number[\s\S]*?}/,
-  `export interface FifoQueueResponse {
-  /** Queue values. */
-  values: Array<number>
-}`
-);
+// 4. Strongly type server bind handlers
+dts = dts.replace(/static bindRtu\(options: SerialServerOptions, handlers: object\)/g, 'static bindRtu(options: SerialServerOptions, handlers: ServerHandlers)');
+dts = dts.replace(/static bindAscii\(options: SerialServerOptions, handlers: object\)/g, 'static bindAscii(options: SerialServerOptions, handlers: ServerHandlers)');
+dts = dts.replace(/static bind\(options: TcpServerOptions, handlers: object\)/g, 'static bind(options: TcpServerOptions, handlers: ServerHandlers)');
 
-// 5. Append additional declarations
+// 3. Harmonize enums: strip 'declare const ' so it matches WASM's 'export enum'
+dts = dts.replace(/export declare const enum /g, 'export enum ');
+
+
+
 const extraDeclarations = `
+/** Represents a Modbus discrete input pin state (alias for CoilState). */
+export type DiscreteInputState = CoilState;
+export declare const DiscreteInputState: typeof CoilState;
+
+/** Modbus exception returned from a server handler. */
 export interface ModbusException {
-  exception: number;
+  /** The Modbus exception code. */
+  exceptionCode: ModbusExceptionCode | number;
 }
 
 /**
@@ -51,16 +55,16 @@ export interface ServerHandlers {
    * @param req.quantity The number of coils to read (1 to 2000).
    * @returns An array of booleans representing the coil states, or a ModbusException.
    */
-  onReadCoils?: (req: ReadCoilsRequest) => boolean[] | ModbusException | Promise<boolean[] | ModbusException>;
+  onReadCoils?: (req: ReadCoilsRequest) => CoilState[] | ModbusException | Promise<CoilState[] | ModbusException>;
 
   /**
    * Handle Read Discrete Inputs (FC 02).
    * @param req The request object.
    * @param req.address The starting discrete input address (0x0000 to 0xFFFF).
    * @param req.quantity The number of inputs to read (1 to 2000).
-   * @returns An array of booleans representing the input states, or a ModbusException.
+   * @returns An array of discrete input states, or a ModbusException.
    */
-  onReadDiscreteInputs?: (req: ReadDiscreteInputsRequest) => boolean[] | ModbusException | Promise<boolean[] | ModbusException>;
+  onReadDiscreteInputs?: (req: ReadDiscreteInputsRequest) => DiscreteInputState[] | ModbusException | Promise<DiscreteInputState[] | ModbusException>;
 
   /**
    * Handle Read Holding Registers (FC 03).
@@ -69,7 +73,7 @@ export interface ServerHandlers {
    * @param req.quantity The number of registers to read (1 to 125).
    * @returns An array of 16-bit numbers representing the registers, or a ModbusException.
    */
-  onReadHoldingRegisters?: (req: ReadHoldingRegistersRequest) => number[] | ModbusException | Promise<number[] | ModbusException>;
+  onReadHoldingRegisters?: (req: ReadHoldingRegistersRequest) => Uint16Array | ModbusException | Promise<Uint16Array | ModbusException>;
 
   /**
    * Handle Read Input Registers (FC 04).
@@ -78,7 +82,7 @@ export interface ServerHandlers {
    * @param req.quantity The number of registers to read (1 to 125).
    * @returns An array of 16-bit numbers representing the registers, or a ModbusException.
    */
-  onReadInputRegisters?: (req: ReadInputRegistersRequest) => number[] | ModbusException | Promise<number[] | ModbusException>;
+  onReadInputRegisters?: (req: ReadInputRegistersRequest) => Uint16Array | ModbusException | Promise<Uint16Array | ModbusException>;
 
   /**
    * Handle Write Single Coil (FC 05).
@@ -135,15 +139,15 @@ export interface ServerHandlers {
   /**
    * Handle Read File Record (FC 20).
    * @param req The request object.
-   * @param req.subRequests An array of sub-requests, each with \`fileNumber\`, \`recordNumber\`, and \`recordLength\`.
+   * @param req.requests An array of sub-requests, each with \`fileNumber\`, \`recordNumber\`, and \`recordLength\`.
    * @returns An array of register arrays for each sub-request, or a ModbusException.
    */
-  onReadFileRecord?: (req: ReadFileRecordRequest) => number[][] | ModbusException | Promise<number[][] | ModbusException>;
+  onReadFileRecord?: (req: ReadFileRecordRequest) => Uint16Array[] | ModbusException | Promise<Uint16Array[] | ModbusException>;
 
   /**
    * Handle Write File Record (FC 21).
    * @param req The request object.
-   * @param req.subRequests An array of sub-requests, each with \`fileNumber\`, \`recordNumber\`, and \`recordData\` (a number array).
+   * @param req.requests An array of sub-requests, each with \`fileNumber\`, \`recordNumber\`, and \`recordData\` (a Uint16Array).
    * @returns void on success, or a ModbusException.
    */
   onWriteFileRecord?: (req: WriteFileRecordRequest) => void | ModbusException | Promise<void | ModbusException>;
@@ -157,14 +161,21 @@ export interface ServerHandlers {
    * @param req.values An array of 16-bit numbers to write.
    * @returns An array of 16-bit numbers read, or a ModbusException.
    */
-  onReadWriteMultipleRegisters?: (req: ReadWriteMultipleRegistersRequest) => number[] | ModbusException | Promise<number[] | ModbusException>;
+  onReadWriteMultipleRegisters?: (req: ReadWriteMultipleRegistersRequest) => Uint16Array | ModbusException | Promise<Uint16Array | ModbusException>;
 
   /**
    * Handle Read FIFO Queue (FC 24).
    * @param req The request object containing the FIFO pointer \`address\`.
    * @returns An array of 16-bit numbers from the queue, or a ModbusException.
    */
-  onReadFifoQueue?: (req: ReadFifoQueueRequest) => number[] | ModbusException | Promise<number[] | ModbusException>;
+  onReadFifoQueue?: (req: ReadFifoQueueRequest) => Uint16Array | ModbusException | Promise<Uint16Array | ModbusException>;
+
+  /**
+   * Handle Read Device Identification (FC 43/14).
+   * @param req The request object.
+   * @returns Device identification response, or a ModbusException.
+   */
+  onReadDeviceIdentification?: (req: ReadDeviceIdentificationRequest) => DeviceIdentificationResponse | ModbusException | Promise<DeviceIdentificationResponse | ModbusException>;
 }
 
 /**
@@ -192,9 +203,43 @@ export declare const ModbusErrorCode: {
  * @returns The corresponding code from \`ModbusErrorCode\`, or undefined if not a Modbus error.
  */
 export declare function getModbusErrorCode(err: Error): string | undefined;
+
+export {
+  WasmWsTransport,
+  WasmWsModbusClient,
+  WasmWsModbusServer,
+  WasmSerialModbusClient,
+  WasmSerialModbusServer,
+  WasmSerialPortHandle,
+  WasmRtuTransport,
+  WasmAsciiTransport,
+  WasmServerTransportKind,
+  requestSerialPort
+} from 'modbus-rs-wasm';
 `;
 
 dts += extraDeclarations;
+
+// Add semicolons to class and interface signatures lacking them
+const newline = dts.includes('\r\n') ? '\r\n' : '\n';
+const lines = dts.split(newline);
+const processedLines = lines.map((line) => {
+  const trimmed = line.trim();
+  if (trimmed.length > 0 &&
+    !trimmed.includes('*') &&
+    !trimmed.includes('/') &&
+    !trimmed.endsWith('{') &&
+    !trimmed.endsWith('}') &&
+    !trimmed.endsWith(';') &&
+    !trimmed.endsWith(',')) {
+    if (/^\s+/.test(line) && (trimmed.includes(':') || trimmed.includes('('))) {
+      return line + ';';
+    }
+  }
+  return line;
+});
+dts = processedLines.join(newline);
+
 fs.writeFileSync(dtsPath, dts, 'utf8');
 console.log('Successfully updated index.d.ts');
 
@@ -232,8 +277,148 @@ module.exports.getModbusErrorCode = function getModbusErrorCode(err) {
   const m = err.message.match(/^\\[([A-Z_]+)(?::[^\\]]*)?\\]/)
   return m ? m[1] : undefined
 }
+
+module.exports.DiscreteInputState = module.exports.CoilState;
+
+class WasmWsTransport {
+  static connect() {
+    throw new Error('WasmWsTransport is only available in browser environments.');
+  }
+}
+class WasmWsModbusClient {}
+class WasmWsModbusServer {}
+class WasmSerialModbusClient {}
+class WasmSerialModbusServer {}
+class WasmSerialPortHandle {}
+class WasmRtuTransport {
+  static open() {
+    throw new Error('WasmRtuTransport is only available in browser environments.');
+  }
+}
+class WasmAsciiTransport {
+  static open() {
+    throw new Error('WasmAsciiTransport is only available in browser environments.');
+  }
+}
+const WasmServerTransportKind = {};
+function requestSerialPort() {
+  throw new Error('requestSerialPort is only available in browser environments.');
+}
+
+module.exports.WasmWsTransport = WasmWsTransport;
+module.exports.WasmWsModbusClient = WasmWsModbusClient;
+module.exports.WasmWsModbusServer = WasmWsModbusServer;
+module.exports.WasmSerialModbusClient = WasmSerialModbusClient;
+module.exports.WasmSerialModbusServer = WasmSerialModbusServer;
+module.exports.WasmSerialPortHandle = WasmSerialPortHandle;
+module.exports.WasmRtuTransport = WasmRtuTransport;
+module.exports.WasmAsciiTransport = WasmAsciiTransport;
+module.exports.WasmServerTransportKind = WasmServerTransportKind;
+module.exports.requestSerialPort = requestSerialPort;
+
+function wrapServerHandlers(handlers) {
+  if (!handlers) return handlers;
+  const wrapped = { ...handlers };
+
+  async function convertOutgoing(promiseOrVal) {
+    const val = await promiseOrVal;
+    if (val && (val instanceof Uint16Array || val instanceof Uint8Array || val instanceof Int16Array || val instanceof Int8Array)) {
+      return Array.from(val);
+    }
+    if (Array.isArray(val) && val.length > 0 && val[0] && (val[0] instanceof Uint16Array || val[0] instanceof Uint8Array)) {
+      return val.map(v => Array.from(v));
+    }
+    return val;
+  }
+
+  if (typeof handlers.onWriteMultipleRegisters === 'function') {
+    const orig = handlers.onWriteMultipleRegisters;
+    wrapped.onWriteMultipleRegisters = function(req) {
+      if (req && Array.isArray(req.values)) {
+        req.values = Uint16Array.from(req.values);
+      }
+      return orig(req);
+    };
+  }
+  if (typeof handlers.onReadWriteMultipleRegisters === 'function') {
+    const orig = handlers.onReadWriteMultipleRegisters;
+    wrapped.onReadWriteMultipleRegisters = function(req) {
+      if (req && Array.isArray(req.writeValues)) {
+        req.writeValues = Uint16Array.from(req.writeValues);
+      }
+      return convertOutgoing(orig(req));
+    };
+  }
+  if (typeof handlers.onWriteFileRecord === 'function') {
+    const orig = handlers.onWriteFileRecord;
+    wrapped.onWriteFileRecord = function(req) {
+      if (req && Array.isArray(req.requests)) {
+        req.requests = req.requests.map(r => {
+          if (r && Array.isArray(r.recordData)) {
+            return { ...r, recordData: Uint16Array.from(r.recordData) };
+          }
+          return r;
+        });
+      }
+      return orig(req);
+    };
+  }
+  if (typeof handlers.onDiagnostics === 'function') {
+    const orig = handlers.onDiagnostics;
+    wrapped.onDiagnostics = async function(req) {
+      if (req && Array.isArray(req.data)) {
+        req.data = Uint16Array.from(req.data);
+      }
+      const val = await orig(req);
+      if (val && typeof val === 'object' && val.data && (val.data instanceof Uint16Array || val.data instanceof Uint8Array)) {
+        return { ...val, data: Array.from(val.data) };
+      }
+      return val;
+    };
+  }
+
+  const readHandlers = [
+    'onReadCoils',
+    'onReadDiscreteInputs',
+    'onReadHoldingRegisters',
+    'onReadInputRegisters',
+    'onReadFifoQueue',
+    'onReadFileRecord'
+  ];
+  for (const name of readHandlers) {
+    if (typeof handlers[name] === 'function') {
+      const orig = handlers[name];
+      wrapped[name] = function(req) {
+        return convertOutgoing(orig(req));
+      };
+    }
+  }
+
+  return wrapped;
+}
+
+const OriginalAsyncTcpModbusServer = module.exports.AsyncTcpModbusServer;
+class AsyncTcpModbusServer extends OriginalAsyncTcpModbusServer {
+  static bind(options, handlers) {
+    return OriginalAsyncTcpModbusServer.bind(options, wrapServerHandlers(handlers));
+  }
+}
+module.exports.AsyncTcpModbusServer = AsyncTcpModbusServer;
+
+const OriginalAsyncSerialModbusServer = module.exports.AsyncSerialModbusServer;
+class AsyncSerialModbusServer extends OriginalAsyncSerialModbusServer {
+  static bindRtu(options, handlers) {
+    return OriginalAsyncSerialModbusServer.bindRtu(options, wrapServerHandlers(handlers));
+  }
+  static bindAscii(options, handlers) {
+    return OriginalAsyncSerialModbusServer.bindAscii(options, wrapServerHandlers(handlers));
+  }
+}
+module.exports.AsyncSerialModbusServer = AsyncSerialModbusServer;
+
+
 `;
-  if (!js.includes('module.exports.ModbusErrorCode')) {
+  if (!js.includes('module.exports.WasmWsTransport')) {
     js += jsExports;
     fs.writeFileSync(jsPath, js, 'utf8');
     console.log('Successfully updated index.js');
@@ -241,3 +426,88 @@ module.exports.getModbusErrorCode = function getModbusErrorCode(err) {
     console.log('index.js already has exports');
   }
 }
+
+// Generate browser/web wrapper files in dist/
+const distDir = path.join(__dirname, '../dist');
+const wrappers = {
+  'index.browser.js': [
+    `export * from 'modbus-rs-wasm';`,
+    `export default async function init() {}`,
+    ``
+  ].join('\n'),
+  'index.browser.d.ts': [
+    `export * from 'modbus-rs-wasm';`,
+    `export default function init(): Promise<void>;`,
+    ``
+  ].join('\n'),
+  'index.web.js': [
+    `import init from 'modbus-rs-wasm/web';`,
+    `export default init;`,
+    `export * from 'modbus-rs-wasm/web';`,
+    ``
+  ].join('\n'),
+  'index.web.d.ts': [
+    `import init from 'modbus-rs-wasm/web';`,
+    `export default init;`,
+    `export * from 'modbus-rs-wasm/web';`,
+    ``
+  ].join('\n'),
+};
+for (const [name, content] of Object.entries(wrappers)) {
+  fs.writeFileSync(path.join(distDir, name), content, 'utf8');
+  console.log(`Generated ${name}`);
+}
+
+// Consolidated WASM postbuild logic (only if wasm output exists in dist/npm/wasm)
+const wasmNpmDir = path.join(distDir, 'npm/wasm');
+if (fs.existsSync(wasmNpmDir)) {
+  const filesToDelete = [
+    'dist/web/.gitignore',
+    'dist/bundler/.gitignore',
+    'dist/web/package.json',
+    'dist/bundler/package.json',
+    'dist/web/README.md',
+    'dist/bundler/README.md',
+  ];
+
+  for (const file of filesToDelete) {
+    const filePath = path.join(wasmNpmDir, file);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`Deleted ${file}`);
+    }
+  }
+
+  // Copy README.md and LICENSE to dist/npm/wasm/
+  const rootDir = path.join(__dirname, '../../..');
+  const readmeSrc = path.join(rootDir, 'README.md');
+  const licenseSrc = path.join(rootDir, 'LICENSE');
+
+  if (fs.existsSync(readmeSrc)) {
+    fs.copyFileSync(readmeSrc, path.join(wasmNpmDir, 'README.md'));
+    console.log('Copied README.md');
+  }
+  if (fs.existsSync(licenseSrc)) {
+    fs.copyFileSync(licenseSrc, path.join(wasmNpmDir, 'LICENSE'));
+    console.log('Copied LICENSE');
+  }
+
+  // Post-process generated .d.ts files to align signatures
+  const dtsFiles = [
+    'dist/web/modbus-rs.d.ts',
+    'dist/bundler/modbus-rs.d.ts',
+  ];
+
+  for (const dtsFile of dtsFiles) {
+    const filePath = path.join(wasmNpmDir, dtsFile);
+    if (fs.existsSync(filePath)) {
+      let content = fs.readFileSync(filePath, 'utf8');
+      content = content.replace(/close\(\): Promise<any>/g, 'close(): Promise<void>');
+      content = content.replace(/reconnect\(\): Promise<any>/g, 'reconnect(): Promise<void>');
+      fs.writeFileSync(filePath, content, 'utf8');
+      console.log(`Processed and aligned typings in ${dtsFile}`);
+    }
+  }
+  console.log('WASM postbuild tasks complete.');
+}
+
