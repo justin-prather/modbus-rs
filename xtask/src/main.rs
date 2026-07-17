@@ -2,6 +2,7 @@
 
 mod check_doc_links;
 mod check_feature_subsets;
+mod client_header;
 mod demo_manifest;
 mod gen_server_app;
 mod validate_docs;
@@ -36,6 +37,7 @@ struct GenClientHeaderOpts {
     out_dir: PathBuf,
     target: Option<String>,
     profile: Option<String>,
+    fix: bool,
 }
 
 fn parse_gen_client_header_opts(
@@ -46,6 +48,7 @@ fn parse_gen_client_header_opts(
     let mut out_dir = None;
     let mut target = None;
     let mut profile = None;
+    let mut fix = false;
     let mut i = 0usize;
     while i < args.len() {
         match args[i].as_str() {
@@ -85,6 +88,12 @@ fn parse_gen_client_header_opts(
                 }
                 profile = Some(val);
             }
+            "--fix" => {
+                fix = true;
+            }
+            "--all-features" => {
+                features = Some("full".to_string());
+            }
             other => {
                 return Err(format!("unknown flag for gen-header-lib: {other}"));
             }
@@ -97,18 +106,13 @@ fn parse_gen_client_header_opts(
         out_dir,
         target,
         profile,
+        fix,
     })
 }
 
 fn cmd_gen_client_header(root: &Path, args: &[String]) -> Result<(), String> {
     let opts = parse_gen_client_header_opts(root, args)?;
-    let mut script_args = vec!["./scripts/check_header.sh", "--fix"];
-    let features_arg;
-    if let Some(feats) = &opts.features {
-        features_arg = format!("--features={feats}");
-        script_args.push(&features_arg);
-    }
-    run_step("bash", &script_args, root)?;
+    client_header::generate_or_check_header(root, opts.features.as_deref(), true)?;
 
     let profile = opts.profile.as_deref().unwrap_or("release");
 
@@ -139,8 +143,17 @@ fn cmd_gen_client_header(root: &Path, args: &[String]) -> Result<(), String> {
     }
 
     build_args.push("--");
+    
+    let has_lock_stubs = features_str.contains("internal-lock-stubs");
+    let is_windows = opts.target.as_ref().map(|t| t.contains("windows")).unwrap_or_else(|| cfg!(windows));
+
     if !is_bare_metal {
-        // Build as cdylib for standard OSes
+        // MSVC linker requires all symbols to be resolved at link time for a DLL.
+        if is_windows && !has_lock_stubs {
+            println!("  (Passing /FORCE:UNRESOLVED on Windows to allow cdylib to build with missing symbols)");
+            build_args.push("-C");
+            build_args.push("link-arg=/FORCE:UNRESOLVED");
+        }
         build_args.push("--crate-type=cdylib");
         build_args.push("--crate-type=staticlib");
         build_args.push("--crate-type=rlib");
@@ -219,13 +232,7 @@ fn cmd_gen_client_header(root: &Path, args: &[String]) -> Result<(), String> {
 
 fn cmd_check_client_header(root: &Path, args: &[String]) -> Result<(), String> {
     let opts = parse_gen_client_header_opts(root, args)?;
-    let mut script_args = vec!["./scripts/check_header.sh"];
-    let features_arg;
-    if let Some(feats) = &opts.features {
-        features_arg = format!("--features={feats}");
-        script_args.push(&features_arg);
-    }
-    run_step("bash", &script_args, root)
+    client_header::generate_or_check_header(root, opts.features.as_deref(), opts.fix)
 }
 
 // ── C demo: build ─────────────────────────────────────────────────────────
