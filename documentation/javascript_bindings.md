@@ -85,10 +85,10 @@ await server.shutdown();
 ## Examples
 
 A self-contained tour of every API lives in
-[`mbus-ffi/nodejs/examples/`](../mbus-ffi/nodejs/examples/) — twelve
+[`mbus-ffi/javascript/examples/`](../mbus-ffi/javascript/examples/) — twelve
 examples covering TCP client, TCP server, gateway, both serial modes,
 and a TypeScript example. See
-[the examples README](../mbus-ffi/nodejs/examples/README.md) for the
+[the examples README](../mbus-ffi/javascript/examples/README.md) for the
 full index and instructions for running the serial examples (which need
 either a real serial device or a virtual port + simulator like
 `socat` + `diagslave` on Linux/macOS or `com0com` + `Modbus Slave` on

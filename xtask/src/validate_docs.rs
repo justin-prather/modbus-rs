@@ -113,7 +113,10 @@ fn walk_dir(dir: &Path, out: &mut Vec<PathBuf>) {
         if path.is_dir() {
             let name = entry.file_name();
             let s = name.to_string_lossy();
-            if !matches!(s.as_ref(), "target" | ".git" | "node_modules" | "pkg") {
+            if !matches!(
+                s.as_ref(),
+                "target" | ".git" | "node_modules" | "pkg" | "dist"
+            ) {
                 walk_dir(&path, out);
             }
         } else if path.extension().is_some_and(|e| e == "md") {

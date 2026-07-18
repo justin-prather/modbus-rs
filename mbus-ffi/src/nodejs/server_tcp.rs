@@ -1242,7 +1242,7 @@ impl JsHandlerAdapter {
 
         let objects_bytes = val.get("objects")
             .filter(|o| o.is_array())
-            .map(|o| Self::parse_device_identification_objects(o))
+            .map(Self::parse_device_identification_objects)
             .unwrap_or_default();
 
         (conformity_level, more_follows, next_object_id, objects_bytes)

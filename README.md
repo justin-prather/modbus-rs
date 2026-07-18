@@ -69,7 +69,7 @@ mbus-core = { version = "0.15.0", default-features = false, features = ["coils",
 | **Client** | [Quick Start](documentation/client/quick_start.md) · [Examples](documentation/client/examples.md) · [Building Apps](documentation/client/building_applications.md) · [Sync](documentation/client/sync.md) · [Async](documentation/client/async.md) · [Policies](documentation/client/policies.md) |
 | **Server** | [Quick Start](documentation/server/quick_start.md) · [Examples](documentation/server/examples.md) · [Building Apps](documentation/server/building_applications.md) · [Sync](documentation/server/sync.md) · [Async](documentation/server/async.md) · [Macros](documentation/server/macros.md) · [Write Hooks](documentation/server/write_hooks.md) · [Function Codes](documentation/server/function_codes.md) |
 | **Gateway** | [Quick Start](documentation/gateway/quick_start.md) · [Architecture](documentation/gateway/architecture.md) · [Routing](documentation/gateway/routing.md) · [WebSocket Gateway](documentation/gateway/ws_gateway.md) · [Feature Flags](documentation/gateway/feature_flags.md) |
-| **Bindings** | [C/FFI](documentation/client/c_bindings.md) · [WASM](documentation/client/wasm.md) · [Python](documentation/python_bindings.md) · [.NET / C#](documentation/dotnet_bindings.md) · [Go](documentation/go_bindings.md) · [Node.js](documentation/nodejs_bindings.md) |
+| **Bindings** | [C/FFI](documentation/client/c_bindings.md) · [WASM](documentation/client/wasm.md) · [Python](documentation/python_bindings.md) · [.NET / C#](documentation/dotnet_bindings.md) · [Go](documentation/go_bindings.md) · [JavaScript](documentation/javascript_bindings.md) |
 | **Reference** | [Client Feature Flags](documentation/client/feature_flags.md) · [Server Feature Flags](documentation/server/feature_flags.md) · [Migration Guides](documentation/migrations) |
 
 ---
@@ -290,10 +290,10 @@ Open the runnable smoke examples in a Chromium-based browser:
 
 | Example | What it exercises |
 |---|---|
-| [examples/network_smoke.html](mbus-ffi/wasm/examples/wasm_client/network_smoke.html) | WebSocket client (TCP proxy) |
-| [examples/serial_smoke.html](mbus-ffi/wasm/examples/wasm_client/serial_smoke.html) | Web Serial client (RTU/ASCII) |
-| [examples/network_server_smoke.html](mbus-ffi/wasm/examples/wasm_server/network_smoke.html) | WASM TCP server lifecycle + dispatch |
-| [examples/serial_server_smoke.html](mbus-ffi/wasm/examples/wasm_server/serial_smoke.html) | WASM Serial server lifecycle + dispatch |
+| [examples/network_smoke.html](mbus-ffi/javascript/examples/wasm_client/network_smoke.html) | WebSocket client (TCP proxy) |
+| [examples/serial_smoke.html](mbus-ffi/javascript/examples/wasm_client/serial_smoke.html) | WebSerial client |
+| [examples/network_server_smoke.html](mbus-ffi/javascript/examples/wasm_server/network_smoke.html) | WASM TCP server lifecycle + dispatch |
+| [examples/serial_server_smoke.html](mbus-ffi/javascript/examples/wasm_server/serial_smoke.html) | WASM RTU server lifecycle + dispatch |
 
 See [`mbus-ffi/README.md`](mbus-ffi/README.md) for the full WASM API reference and server binding architecture.
 
@@ -389,7 +389,7 @@ await client.close();
 > return `IllegalFunction` and writes are echoed.  Full dispatch is planned for
 > v0.9. The client API is fully functional.
 
-📖 **[Full Node.js Binding Documentation →](documentation/nodejs_bindings.md)**
+📖 **[Full JavaScript Binding Documentation →](documentation/javascript_bindings.md)**
 
 
 ### Gateway (sync TCP → RTU)

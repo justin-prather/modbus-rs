@@ -73,7 +73,7 @@ pub fn generate_or_check_header(root: &Path, features: Option<&str>, fix: bool) 
             config_block.push_str(&format!("/* #undef {} */\n", macro_name));
         }
     }
-    config_block.push_str("\n");
+    config_block.push('\n');
 
     // Process the header file
     let content = sh.read_file(&tmpfile).map_err(|e| format!("Failed to read {}: {}", tmpfile.display(), e))?;
@@ -114,9 +114,9 @@ pub fn generate_or_check_header(root: &Path, features: Option<&str>, fix: bool) 
     let tmp_content = sh.read_file(&tmpfile).map_err(|e| format!("Failed to read {}: {}", tmpfile.display(), e))?;
 
     if existing_content != tmp_content {
-        return Err(format!(
-            "\nERROR: modbus_rs.h is out of date with the Rust source.\nRun the following to fix it:\n\n  cargo run -p xtask -- check-client-header --fix\n"
-        ));
+        return Err(
+            "\nERROR: modbus_rs.h is out of date with the Rust source.\nRun the following to fix it:\n\n  cargo run -p xtask -- check-client-header --fix\n".to_string()
+        );
     }
 
     println!("OK: modbus_rs.h is up to date.");

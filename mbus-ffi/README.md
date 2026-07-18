@@ -555,7 +555,7 @@ await client.writeMultipleRegisters({ address: 10, values: [1, 2, 3, 4] });
 await transport.close();
 ```
 
-📖 **[Full Node.js Binding Documentation →](../documentation/nodejs_bindings.md)**
+📖 **[Full JavaScript Binding Documentation →](../documentation/javascript_bindings.md)**
 
 ---
 

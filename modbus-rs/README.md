@@ -106,7 +106,7 @@ Additional workspace documentation is available in the `documentation/` folder:
 - [documentation/python_bindings.md](../documentation/python_bindings.md) — Python (PyO3 / maturin)
 - [documentation/dotnet_bindings.md](../documentation/dotnet_bindings.md) — .NET / C# (P/Invoke)
 - [documentation/go_bindings.md](../documentation/go_bindings.md) — Go (cgo)
-- [documentation/nodejs_bindings.md](../documentation/nodejs_bindings.md) — Node.js (napi-rs)
+- [documentation/javascript_bindings.md](../documentation/javascript_bindings.md) — Node.js (napi-rs)
 
 
 ## What This Crate Is
