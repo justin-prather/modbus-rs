@@ -217,7 +217,8 @@ jobs:
         working-directory: mbus-ffi/javascript
         run: |
           npm run build:wasm
-          npm install file:./dist/npm/wasm
+          rm -rf node_modules/modbus-rs-wasm
+          ln -s ../dist/npm/wasm node_modules/modbus-rs-wasm
 
       - name: Install Playwright Chromium
         working-directory: mbus-ffi/javascript
