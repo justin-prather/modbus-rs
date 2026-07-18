@@ -101,7 +101,22 @@ pub fn setup_abort_listener(
             Ok(())
         })?;
 
-        signal_obj.set("onabort", abort_cb)?;
+        if let Ok(Some(add_listener)) = signal_obj.get::<napi::JsFunction>("addEventListener") {
+            let event_type = env.create_string("abort")?;
+            let mut opts = env.create_object()?;
+            opts.set("once", true)?;
+            let _ = add_listener.call(
+                Some(&signal_obj),
+                &[
+                    event_type.into_unknown(),
+                    abort_cb.into_unknown(),
+                    opts.into_unknown(),
+                ],
+            );
+        } else {
+            signal_obj.set("onabort", abort_cb)?;
+        }
+
         Ok(Some(abort_rx))
     } else {
         Ok(None)
