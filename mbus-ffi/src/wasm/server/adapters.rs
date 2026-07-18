@@ -137,7 +137,7 @@ impl SerialServerAdapter {
         let serial_mode = match kind {
             WasmServerTransportKind::SerialRtu => SerialMode::Rtu,
             WasmServerTransportKind::SerialAscii => SerialMode::Ascii,
-            WasmServerTransportKind::TcpGateway => {
+            WasmServerTransportKind::WsGateway => {
                 return Err(JsValue::from_str("tcp gateway is not a serial mode"));
             }
         };
@@ -168,7 +168,7 @@ impl SerialServerAdapter {
             WasmServerTransportKind::SerialAscii => {
                 RuntimeSerialAdapter::Ascii(WasmAsciiTransport::new())
             }
-            WasmServerTransportKind::TcpGateway => {
+            WasmServerTransportKind::WsGateway => {
                 return Err(JsValue::from_str("tcp gateway is not a serial mode"));
             }
         };

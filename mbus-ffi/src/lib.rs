@@ -56,7 +56,8 @@ pub use wasm::{WasmModbusClient, WasmTcpTransport};
 
 #[cfg(all(target_arch = "wasm32", feature = "wasm-client"))]
 pub use wasm::{
-    WasmSerialModbusClient, WasmSerialPortHandle, WasmSerialTransport, request_serial_port,
+    ModbusErrorCode, WasmAsciiTransport, WasmRtuTransport, WasmSerialModbusClient,
+    WasmSerialPortHandle, get_modbus_error_code, request_serial_port,
 };
 
 #[cfg(all(target_arch = "wasm32", feature = "wasm-server"))]

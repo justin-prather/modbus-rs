@@ -257,7 +257,7 @@ impl JsServerHandlers {
             let _ = js_sys::Reflect::set(
                 &req,
                 &JsValue::from_str("value"),
-                &JsValue::from_bool(value),
+                &JsValue::from_f64(if value { 1.0 } else { 0.0 }),
             );
 
             match call_handler(&func, &req.into()).await {
@@ -300,7 +300,7 @@ impl JsServerHandlers {
 
             let js_values = js_sys::Array::new();
             for &val in &values {
-                js_values.push(&JsValue::from_bool(val));
+                js_values.push(&JsValue::from_f64(if val { 1.0 } else { 0.0 }));
             }
 
             let req = js_sys::Object::new();
@@ -485,10 +485,7 @@ impl JsServerHandlers {
                 }
             }
 
-            let js_values = js_sys::Array::new();
-            for &val in &values {
-                js_values.push(&JsValue::from_f64(val as f64));
-            }
+            let js_values = js_sys::Uint16Array::from(&values[..]);
 
             let req = js_sys::Object::new();
             let _ = js_sys::Reflect::set(
@@ -583,10 +580,7 @@ impl JsServerHandlers {
                 }
             }
 
-            let js_values = js_sys::Array::new();
-            for &val in &write_values {
-                js_values.push(&JsValue::from_f64(val as f64));
-            }
+            let js_values = js_sys::Uint16Array::from(&write_values[..]);
 
             let req = js_sys::Object::new();
             let _ = js_sys::Reflect::set(
@@ -805,15 +799,16 @@ impl JsServerHandlers {
                     &JsValue::from_f64(sub.record_number as f64),
                 );
 
-                let data_arr = js_sys::Array::new();
+                let mut vals = std::vec::Vec::with_capacity(sub.record_length as usize);
                 for i in 0..sub.record_length {
                     let idx = (i * 2) as usize;
                     if idx + 1 < sub.record_data.len() {
                         let val =
                             u16::from_be_bytes([sub.record_data[idx], sub.record_data[idx + 1]]);
-                        data_arr.push(&JsValue::from_f64(val as f64));
+                        vals.push(val);
                     }
                 }
+                let data_arr = js_sys::Uint16Array::from(&vals[..]);
                 let _ =
                     js_sys::Reflect::set(&item, &JsValue::from_str("recordData"), &data_arr.into());
                 js_reqs.push(&item.into());
@@ -882,8 +877,7 @@ impl JsServerHandlers {
     ) -> ModbusResponse {
         let fc = FunctionCode::Diagnostics;
         if let Some(func) = get_handler_fn(handlers, "onDiagnostics") {
-            let js_data = js_sys::Array::new();
-            js_data.push(&JsValue::from_f64(data as f64));
+            let js_data = js_sys::Uint16Array::from(&[data][..]);
 
             let req = js_sys::Object::new();
             let _ = js_sys::Reflect::set(
@@ -1143,7 +1137,7 @@ fn get_exception_code(val: &JsValue) -> Option<ExceptionCode> {
             let _ = arr;
             return None;
         }
-        if let Ok(code_val) = js_sys::Reflect::get(val, &JsValue::from_str("exception")) {
+        if let Ok(code_val) = js_sys::Reflect::get(val, &JsValue::from_str("exceptionCode")) {
             if let Some(code) = code_val.as_f64() {
                 match code as u8 {
                     0x01 => return Some(ExceptionCode::IllegalFunction),
@@ -1166,31 +1160,24 @@ fn to_bool_vec(val: &JsValue) -> Result<std::vec::Vec<bool>, String> {
         let mut vec = std::vec::Vec::with_capacity(arr.length() as usize);
         for i in 0..arr.length() {
             let item = arr.get(i);
-            vec.push(item.as_bool().unwrap_or(false));
+            let b = if let Some(n) = item.as_f64() {
+                n != 0.0
+            } else {
+                item.as_bool().unwrap_or(false)
+            };
+            vec.push(b);
         }
         Ok(vec)
     } else {
-        Err("Expected boolean[]".to_string())
+        Err("Expected CoilState[] (0 or 1) or boolean[]".to_string())
     }
 }
 
 fn to_u16_vec(val: &JsValue) -> Result<std::vec::Vec<u16>, String> {
-    if js_sys::Array::is_array(val) {
-        let arr = js_sys::Array::from(val);
-        let mut vec = std::vec::Vec::with_capacity(arr.length() as usize);
-        for i in 0..arr.length() {
-            let item = arr.get(i);
-            if let Some(num) = item.as_f64() {
-                vec.push(num as u16);
-            } else {
-                return Err("Array element is not a number".to_string());
-            }
-        }
-        Ok(vec)
-    } else if let Ok(typed_arr) = val.clone().dyn_into::<js_sys::Uint16Array>() {
+    if let Ok(typed_arr) = val.clone().dyn_into::<js_sys::Uint16Array>() {
         Ok(typed_arr.to_vec())
     } else {
-        Err("Expected number[] or Uint16Array".to_string())
+        Err("Expected Uint16Array".to_string())
     }
 }
 
@@ -1206,7 +1193,7 @@ fn to_nested_u16_vec(val: &JsValue) -> Result<std::vec::Vec<std::vec::Vec<u16>>,
         }
         Ok(vec)
     } else {
-        Err("Expected nested array".to_string())
+        Err("Expected nested array of Uint16Array".to_string())
     }
 }
 

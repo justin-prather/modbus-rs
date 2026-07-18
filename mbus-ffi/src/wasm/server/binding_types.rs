@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WasmServerTransportKind {
     /// Server loop receives requests via a WebSocket gateway.
-    TcpGateway,
+    WsGateway,
     /// Server loop receives RTU frames via Web Serial.
     SerialRtu,
     /// Server loop receives ASCII frames via Web Serial.

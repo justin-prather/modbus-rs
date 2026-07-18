@@ -542,7 +542,10 @@ impl<T: WasmAsyncTransportTrait> WasmClientTask<T> {
             #[cfg(feature = "holding-registers")]
             R::MaskWriteRegister => WasmResponse::Void,
             #[cfg(feature = "fifo")]
-            R::FifoQueue(fifo) => WasmResponse::U16Array(fifo.queue()[..fifo.length()].to_vec()),
+            R::FifoQueue(fifo) => WasmResponse::FifoQueue {
+                count: fifo.length() as u16,
+                values: fifo.queue()[..fifo.length()].to_vec(),
+            },
             #[cfg(feature = "file-record")]
             R::FileRecordRead(sub_requests) => {
                 let mut vec = Vec::new();

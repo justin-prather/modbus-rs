@@ -27,6 +27,7 @@ Cargo.lock
 # accidentally ends up in src/ during development.
 mbus-ffi/src/c/server_gen/generated_server.rs
 temp
+**.png
 **.tmp.**
 **.tmp
 **.temp.**
@@ -69,3 +70,7 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
+
+# Build outputs
+mbus-ffi/javascript/dist/
+

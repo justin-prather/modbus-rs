@@ -6,6 +6,7 @@ use napi::bindgen_prelude::*;
 use napi::threadsafe_function::ThreadsafeFunction;
 use napi_derive::napi;
 use serde_json::Value as JsValue;
+use crate::nodejs::node_types::ReadDeviceIdentificationRequest;
 
 use mbus_core::errors::ExceptionCode;
 use mbus_core::function_codes::public::FunctionCode;
@@ -51,7 +52,8 @@ pub struct WriteSingleCoilRequest {
     pub unit_id: u8,
     #[doc = "The address of the coil to write to."]
     pub address: u16,
-    #[doc = "The value to write (true for ON, false for OFF)."]
+    #[doc = "The coil state (CoilState.On = 1, CoilState.Off = 0)."]
+    #[napi(ts_type = "CoilState")]
     pub value: bool,
 }
 
@@ -63,7 +65,8 @@ pub struct WriteMultipleCoilsRequest {
     pub unit_id: u8,
     #[doc = "The starting address of the coils to write to."]
     pub address: u16,
-    #[doc = "The array of boolean values to write."]
+    #[doc = "The array of coil states to write."]
+    #[napi(ts_type = "CoilState[]")]
     pub values: Vec<bool>,
 }
 
@@ -124,6 +127,7 @@ pub struct WriteMultipleRegistersRequest {
     #[doc = "The starting address of the registers to write to."]
     pub address: u16,
     #[doc = "The array of 16-bit values to write."]
+    #[napi(ts_type = "Uint16Array")]
     pub values: Vec<u16>,
 }
 
@@ -158,6 +162,7 @@ pub struct ReadWriteMultipleRegistersRequest {
     #[doc = "The starting address for the write operation."]
     pub write_address: u16,
     #[doc = "The array of 16-bit values to write."]
+    #[napi(ts_type = "Uint16Array")]
     pub write_values: Vec<u16>,
 }
 
@@ -192,6 +197,7 @@ pub struct FileRecordWriteSubRequest {
     #[doc = "The starting record number within the file."]
     pub record_number: u16,
     #[doc = "The record data to write, as an array of 16-bit values."]
+    #[napi(ts_type = "Uint16Array")]
     pub record_data: Vec<u16>,
 }
 
@@ -214,17 +220,10 @@ pub struct DiagnosticsRequest {
     #[doc = "The diagnostic sub-function code to execute."]
     pub sub_function: u16,
     #[doc = "Data sent with the diagnostics request."]
+    #[napi(ts_type = "Uint16Array")]
     pub data: Vec<u16>,
 }
 
-/// Response that may include an exception code.
-#[napi(object)]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ServerExceptionResponse {
-    #[doc = "The Modbus exception code (e.g., 1 for Illegal Function)."]
-    /// Modbus exception code if this is an error response.
-    pub exception: Option<u8>,
-}
 
 // ── Diagnostics Response ─────────────────────────────────────────────────────
 
@@ -236,6 +235,7 @@ pub struct ServerDiagnosticsResponse {
     #[doc = "The sub-function code from the request."]
     pub sub_function: u16,
     #[doc = "The data to be returned by the diagnostics function."]
+    #[napi(ts_type = "Uint16Array")]
     pub data: Vec<u16>,
 }
 
@@ -263,16 +263,16 @@ fn u8_to_exception_code(val: u8) -> Option<ExceptionCode> {
     }
 }
 
-/// Check if a `serde_json::Value` is an exception object `{ exception: N }`.
+/// Check if a `serde_json::Value` is an exception object `{ exceptionCode: N }`.
 ///
-/// Only matches plain objects (not arrays) with a numeric `exception` key.
+/// Only matches plain objects (not arrays) with a numeric `exceptionCode` key.
 fn try_exception_code(val: &JsValue) -> Option<ExceptionCode> {
     // Arrays also report as Object in JS; skip them
     if val.is_array() {
         return None;
     }
     let obj = val.as_object()?;
-    let exc = obj.get("exception")?;
+    let exc = obj.get("exceptionCode")?;
     let code = exc.as_u64()? as u8;
     u8_to_exception_code(code)
 }
@@ -326,11 +326,18 @@ fn parse_bool_vec_return(val: Option<JsValue>) -> HandlerReturn<Vec<bool>> {
     if let JsValue::Array(arr) = &val {
         let mut result = Vec::with_capacity(arr.len());
         for item in arr {
-            if let Some(b) = item.as_bool() {
-                result.push(b);
+            let b = if let Some(b) = item.as_bool() {
+                b
+            } else if let Some(n) = item.as_i64() {
+                n != 0
+            } else if let Some(n) = item.as_f64() {
+                n != 0.0
+            } else if let Some(n) = item.as_u64() {
+                n != 0
             } else {
                 return HandlerReturn::Exception(ExceptionCode::ServerDeviceFailure);
-            }
+            };
+            result.push(b);
         }
         return HandlerReturn::Data(result);
     }
@@ -441,6 +448,8 @@ pub struct JsHandlerAdapter {
     pub on_read_exception_status: Option<Arc<JsHandler<ReadExceptionStatusRequest>>>,
     #[cfg(feature = "diagnostics")]
     pub on_diagnostics: Option<Arc<JsHandler<DiagnosticsRequest>>>,
+    #[cfg(feature = "diagnostics")]
+    pub on_read_device_identification: Option<Arc<JsHandler<ReadDeviceIdentificationRequest>>>,
     #[cfg(feature = "file-record")]
     pub on_read_file_record: Option<Arc<JsHandler<ReadFileRecordRequest>>>,
     #[cfg(feature = "file-record")]
@@ -1157,6 +1166,170 @@ impl JsHandlerAdapter {
             ModbusResponse::echo_write_file_record(raw_pdu_data)
         }
     }
+
+    #[cfg(feature = "diagnostics")]
+    async fn handle_encapsulated_interface_transport(
+        &self,
+        unit: UnitIdOrSlaveAddr,
+        mei_type: u8,
+        data: &[u8],
+    ) -> ModbusResponse {
+        let fc = FunctionCode::EncapsulatedInterfaceTransport;
+        if mei_type == 0x0E {
+            if data.len() < 2 {
+                return ModbusResponse::exception(fc, ExceptionCode::IllegalDataValue);
+            }
+            let read_device_id_code = data[0];
+            let start_object_id = data[1];
+
+            if let Some(handler) = &self.on_read_device_identification {
+                let js_req = ReadDeviceIdentificationRequest {
+                    unit_id: u8::from(unit),
+                    read_device_id_code,
+                    object_id: start_object_id,
+                };
+
+                match handler.call_async(js_req).await {
+                    Ok(promise) => match promise.await {
+                        Ok(val) => {
+                            if let Some(v) = val {
+                                if let Some(exc) = try_exception_code(&v) {
+                                    ModbusResponse::exception(fc, exc)
+                                } else if v.is_object() {
+                                    let (conformity_level, more_follows, next_object_id, objects_bytes) =
+                                        Self::parse_device_identification_response(&v);
+                                    ModbusResponse::read_device_id(
+                                        read_device_id_code,
+                                        conformity_level,
+                                        more_follows,
+                                        next_object_id,
+                                        &objects_bytes,
+                                    )
+                                } else {
+                                    Self::default_device_id_response(read_device_id_code, start_object_id)
+                                }
+                            } else {
+                                Self::default_device_id_response(read_device_id_code, start_object_id)
+                            }
+                        }
+                        Err(_) => ModbusResponse::exception(fc, ExceptionCode::ServerDeviceFailure),
+                    },
+                    Err(_) => ModbusResponse::exception(fc, ExceptionCode::ServerDeviceFailure),
+                }
+            } else {
+                Self::default_device_id_response(read_device_id_code, start_object_id)
+            }
+        } else {
+            ModbusResponse::exception(fc, ExceptionCode::IllegalFunction)
+        }
+    }
+
+    #[cfg(feature = "diagnostics")]
+    fn parse_device_identification_response(val: &serde_json::Value) -> (u8, bool, u8, Vec<u8>) {
+        let conformity_level = val.get("conformityLevel")
+            .and_then(|c| c.as_u64())
+            .map(|c| c as u8)
+            .unwrap_or(0x82);
+
+        let more_follows = val.get("moreFollows")
+            .and_then(|m| m.as_bool())
+            .unwrap_or(false);
+
+        let next_object_id = val.get("nextObjectId")
+            .and_then(|n| n.as_u64())
+            .map(|n| n as u8)
+            .unwrap_or(0);
+
+        let objects_bytes = val.get("objects")
+            .filter(|o| o.is_array())
+            .map(Self::parse_device_identification_objects)
+            .unwrap_or_default();
+
+        (conformity_level, more_follows, next_object_id, objects_bytes)
+    }
+
+    #[cfg(feature = "diagnostics")]
+    fn parse_device_identification_objects(objs_val: &serde_json::Value) -> Vec<u8> {
+        let mut objects_bytes = Vec::new();
+        if let Some(arr) = objs_val.as_array() {
+            for item in arr {
+                if item.is_object() {
+                    let obj_id = item.get("id")
+                        .and_then(|id| id.as_u64())
+                        .map(|id| id as u8)
+                        .unwrap_or(0);
+
+                    let obj_val_str = item.get("value")
+                        .and_then(|val| val.as_str())
+                        .unwrap_or_default();
+
+                    let val_bytes = obj_val_str.as_bytes();
+                    objects_bytes.push(obj_id);
+                    objects_bytes.push(val_bytes.len() as u8);
+                    objects_bytes.extend_from_slice(val_bytes);
+                }
+            }
+        }
+        objects_bytes
+    }
+
+    #[cfg(feature = "diagnostics")]
+    fn default_device_id_response(read_device_id_code: u8, start_object_id: u8) -> ModbusResponse {
+        let vendor_name = b"Modbus-RS NodeJS Server";
+        let product_code = b"mbus-nodejs-server";
+        let revision = b"0.15.0";
+        let vendor_url = b"https://github.com/Raghava-Ch/modbus-rs";
+        let product_name = b"NodeJS Server Simulator";
+
+        let objects: &[(u8, &[u8])] = &[
+            (0x00, vendor_name),
+            (0x01, product_code),
+            (0x02, revision),
+            (0x03, vendor_url),
+            (0x04, product_name),
+        ];
+
+        let mut objects_bytes = std::vec::Vec::new();
+        let conformity = 0x82;
+
+        if read_device_id_code == 0x04 {
+            for &(id, val) in objects {
+                if id == start_object_id {
+                    objects_bytes.push(id);
+                    objects_bytes.push(val.len() as u8);
+                    objects_bytes.extend_from_slice(val);
+                    return ModbusResponse::read_device_id(
+                        read_device_id_code,
+                        conformity,
+                        false,
+                        0,
+                        &objects_bytes,
+                    );
+                }
+            }
+            return ModbusResponse::exception(
+                FunctionCode::EncapsulatedInterfaceTransport,
+                ExceptionCode::IllegalDataAddress,
+            );
+        }
+
+        let more_follows = false;
+        let next_id = 0;
+
+        for &(id, val) in objects.iter().filter(|&&(id, _)| id >= start_object_id) {
+            objects_bytes.push(id);
+            objects_bytes.push(val.len() as u8);
+            objects_bytes.extend_from_slice(val);
+        }
+
+        ModbusResponse::read_device_id(
+            read_device_id_code,
+            conformity,
+            more_follows,
+            next_id,
+            &objects_bytes,
+        )
+    }
 }
 
 impl AsyncAppHandler for JsHandlerAdapter {
@@ -1301,8 +1474,14 @@ impl AsyncAppHandler for JsHandlerAdapter {
                     .await
             }
             #[cfg(feature = "diagnostics")]
-            ModbusRequest::EncapsulatedInterfaceTransport { .. } => {
-                ModbusResponse::exception_raw(0x2B, ExceptionCode::IllegalFunction)
+            ModbusRequest::EncapsulatedInterfaceTransport {
+                mei_type,
+                data,
+                unit,
+                ..
+            } => {
+                self.handle_encapsulated_interface_transport(unit, mei_type, &data)
+                    .await
             }
             _ => ModbusResponse::NoResponse,
         }
@@ -1361,6 +1540,11 @@ pub fn build_adapter(env: &Env, handlers: &Object) -> Result<JsHandlerAdapter> {
         on_read_file_record: get_handler!("onReadFileRecord", ReadFileRecordRequest),
         #[cfg(feature = "file-record")]
         on_write_file_record: get_handler!("onWriteFileRecord", WriteFileRecordRequest),
+        #[cfg(feature = "diagnostics")]
+        on_read_device_identification: get_handler!(
+            "onReadDeviceIdentification",
+            ReadDeviceIdentificationRequest
+        ),
     })
 }
 
@@ -1416,21 +1600,21 @@ impl AsyncTcpModbusServer {
     #[allow(clippy::missing_transmute_annotations)]
     #[doc = "Creates and starts a new Modbus TCP server."]
     #[doc = ""]
-    #[doc = "@param opts Server bind options."]
-    #[doc = "@param opts.host The host address to bind to (e.g., '0.0.0.0')."]
-    #[doc = "@param opts.port The TCP port to listen on."]
-    #[doc = "@param opts.unitId The Modbus unit ID the server will respond to."]
-    #[doc = "@param handlers An object containing callback functions to handle Modbus requests (matches the `ServerHandlers` interface in TypeScript)."]
-    #[doc = "@returns A `Promise` that resolves to a running `AsyncTcpModbusServer` instance."]
+    #[doc = "@param {TcpServerOptions} options Server bind options."]
+    #[doc = "@param {string} options.host The host address to bind to (e.g., '0.0.0.0')."]
+    #[doc = "@param {number} options.port The TCP port to listen on."]
+    #[doc = "@param {number} options.unitId The Modbus unit ID the server will respond to."]
+    #[doc = "@param {ServerHandlers} handlers An object containing callback functions to handle Modbus requests."]
+    #[doc = "@returns {`Promise<AsyncTcpModbusServer>`} A `Promise` that resolves to a running `AsyncTcpModbusServer` instance."]
     pub fn bind(
         env: Env,
-        opts: TcpServerOptions,
-        handlers: Object<'_>,
+        options: TcpServerOptions,
+        #[napi(ts_arg_type = "ServerHandlers")] handlers: Object<'_>,
     ) -> Result<PromiseRaw<'static, AsyncTcpModbusServer>> {
-        let unit = UnitIdOrSlaveAddr::new(opts.unit_id)
+        let unit = UnitIdOrSlaveAddr::new(options.unit_id)
             .map_err(|e| to_napi_err(ERR_MODBUS_INVALID_ARGUMENT, e))?;
 
-        let bind_addr = format!("{}:{}", opts.host, opts.port);
+        let bind_addr = format!("{}:{}", options.host, options.port);
         let stop_signal = Arc::new(Notify::new());
         let stop_signal_clone = stop_signal.clone();
         let conn_handles: Arc<Mutex<Vec<JoinHandle<()>>>> = Arc::new(Mutex::new(Vec::new()));

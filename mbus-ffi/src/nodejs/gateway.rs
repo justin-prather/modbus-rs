@@ -71,12 +71,20 @@ pub struct AsyncTcpGateway {
 impl AsyncTcpGateway {
     /// Creates and starts a new TCP gateway.
     ///
-    /// @param opts - Gateway bind options.
-    /// @param config - Gateway configuration including downstreams and routes.
-    /// @returns A running gateway instance.
+    /// @param {GatewayBindOptions} options - Gateway bind options.
+    /// @param {string} options.host - Bind host address (e.g., "0.0.0.0").
+    /// @param {number} options.port - Bind port.
+    ///
+    /// @param {GatewayConfig} config - Gateway configuration including downstreams and routes.
+    /// @param {DownstreamConfig[]} config.downstreams - List of downstream servers.
+    /// @param {RouteEntry[]} config.routes - Routing table mapping unit IDs to downstream channels.
+    /// @returns {`Promise<AsyncTcpGateway>`} A promise that resolves to the running gateway instance.
     #[napi(factory)]
-    pub async fn bind(opts: GatewayBindOptions, config: GatewayConfig) -> Result<AsyncTcpGateway> {
-        let bind_addr = format!("{}:{}", opts.host, opts.port);
+    pub async fn bind(
+        options: GatewayBindOptions,
+        config: GatewayConfig,
+    ) -> Result<AsyncTcpGateway> {
+        let bind_addr = format!("{}:{}", options.host, options.port);
         let stop_signal = std::sync::Arc::new(Notify::new());
         let stop_signal_clone = stop_signal.clone();
 

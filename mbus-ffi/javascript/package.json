@@ -1,0 +1,101 @@
+{
+  "name": "modbus-rs",
+  "version": "0.15.4",
+  "description": "High-performance Modbus TCP/RTU/ASCII client, server and gateway for Node.js, powered by Rust",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "browser": "./dist/index.browser.d.ts",
+        "default": "./dist/index.d.ts"
+      },
+      "browser": "./dist/index.browser.js",
+      "default": "./dist/index.js"
+    },
+    "./web": {
+      "types": "./dist/index.web.d.ts",
+      "default": "./dist/index.web.js"
+    }
+  },
+  "scripts": {
+    "build": "npm run build:nodejs && npm run build:wasm",
+    "build:nodejs": "napi build --platform --release --features nodejs-full --js index.js --dts index.d.ts --output-dir dist --manifest-path ../Cargo.toml && node scripts/postbuild.js",
+    "build:debug": "napi build --platform --features nodejs-full --js index.js --dts index.d.ts --output-dir dist --manifest-path ../Cargo.toml && node scripts/postbuild.js",
+    "build:wasm": "npm run build:wasm:web && npm run build:wasm:bundler",
+    "build:wasm:web": "wasm-pack build ../. --target web --out-name modbus-rs --out-dir javascript/dist/npm/wasm/dist/web --features wasm-full",
+    "build:wasm:bundler": "wasm-pack build ../. --target bundler --out-name modbus-rs --out-dir javascript/dist/npm/wasm/dist/bundler --features wasm-full",
+    "test": "node --test __test__/*.test.mjs",
+    "test:wasm": "vitest run --reporter=verbose",
+    "test:wasm:watch": "vitest --browser",
+    "prepublishOnly": "napi prepublish -t dist/npm",
+    "artifacts": "napi artifacts",
+    "universal": "napi universal",
+    "version": "napi version"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Raghava-Ch/modbus-rs.git"
+  },
+  "keywords": [
+    "modbus",
+    "modbus-tcp",
+    "modbus-rtu",
+    "modbus-ascii",
+    "scada",
+    "plc",
+    "industrial",
+    "automation",
+    "napi-rs",
+    "rust"
+  ],
+  "author": "Raghava-Ch",
+  "license": "GPL-3.0-only",
+  "bugs": {
+    "url": "https://github.com/Raghava-Ch/modbus-rs/issues"
+  },
+  "homepage": "https://github.com/Raghava-Ch/modbus-rs#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "napi": {
+    "binaryName": "modbus-rs",
+    "targets": [
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "aarch64-unknown-linux-gnu"
+    ]
+  },
+  "devDependencies": {
+    "modbus-rs-wasm": "file:./dist/npm/wasm",
+    "@napi-rs/cli": "^3.6.2",
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.18.1",
+    "@vitest/browser": "^4.1.9",
+    "@vitest/browser-playwright": "^4.1.9",
+    "esbuild": "^0.28.1",
+    "playwright": "^1.50.0",
+    "rollup": "^4.62.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0",
+    "vitest": "^4.1.9",
+    "ws": "^8.18.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "optionalDependencies": {
+    "modbus-rs-darwin-arm64": "0.15.4",
+    "modbus-rs-darwin-x64": "0.15.4",
+    "modbus-rs-linux-arm64-gnu": "0.15.4",
+    "modbus-rs-linux-x64-gnu": "0.15.4",
+    "modbus-rs-wasm": "0.15.4",
+    "modbus-rs-win32-x64-msvc": "0.15.4"
+  }
+}

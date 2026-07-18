@@ -1,0 +1,58 @@
+{
+  "name": "modbus-rs-wasm",
+  "version": "0.15.4",
+  "description": "Modbus TCP/RTU/ASCII client & server for the browser, powered by Rust + WebAssembly",
+  "type": "module",
+  "exports": {
+    ".": {
+      "node": "./dist/bundler/modbus-rs.js",
+      "import": "./dist/bundler/modbus-rs.js",
+      "require": "./dist/bundler/modbus-rs.js",
+      "types": "./dist/bundler/modbus-rs.d.ts"
+    },
+    "./web": {
+      "import": "./dist/web/modbus-rs.js",
+      "types": "./dist/web/modbus-rs.d.ts"
+    },
+    "./dist/bundler/*": "./dist/bundler/*",
+    "./dist/web/*": "./dist/web/*"
+  },
+  "main": "dist/bundler/modbus-rs.js",
+  "module": "dist/bundler/modbus-rs.js",
+  "types": "dist/bundler/modbus-rs.d.ts",
+  "files": [
+    "dist/web/modbus-rs.js",
+    "dist/web/modbus-rs.d.ts",
+    "dist/web/modbus-rs_bg.wasm",
+    "dist/web/modbus-rs_bg.wasm.d.ts",
+    "dist/web/snippets",
+    "dist/bundler/modbus-rs.js",
+    "dist/bundler/modbus-rs.d.ts",
+    "dist/bundler/modbus-rs_bg.wasm",
+    "dist/bundler/modbus-rs_bg.js",
+    "dist/bundler/modbus-rs_bg.wasm.d.ts",
+    "dist/bundler/snippets",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "modbus",
+    "wasm",
+    "webassembly",
+    "websocket",
+    "web-serial",
+    "modbus-tcp",
+    "modbus-rtu",
+    "modbus-ascii",
+    "scada",
+    "plc",
+    "industrial",
+    "browser"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Raghava-Ch/modbus-rs.git"
+  },
+  "author": "Raghava-Ch",
+  "license": "GPL-3.0-only"
+}

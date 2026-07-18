@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": false,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "lib": [
+      "ESNext",
+      "ESNext.Disposable"
+    ],
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "dist/index.d.ts",
+    "examples/**/*.ts",
+    "__test__/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "target",
+    "examples/15-browser-integration.ts",
+    "__test__/wasm/**/*"
+  ]
+}
