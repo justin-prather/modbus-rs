@@ -118,9 +118,7 @@ jobs:
         working-directory: mbus-ffi/javascript
         shell: bash
         run: |
-          shopt -s nullglob
-          for dir in artifacts/bindings-*; do
-            for bin in "$dir"/*.node; do
+          find artifacts/ -name '*.node' | while read bin; do
               target_file=$(basename "$bin")
               case "$target_file" in
                 modbus-rs.win32-x64-msvc.node)
@@ -139,11 +137,9 @@ jobs:
                   cp "$bin" dist/npm/linux-arm64-gnu/
                   ;;
                 *)
-                  echo "Unexpected binary artifact: $target_file"
-                  exit 1
+                  echo "Unknown binary: $target_file"
                   ;;
               esac
-            done
           done
 
           for pkg_dir in dist/npm/*; do
