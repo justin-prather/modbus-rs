@@ -520,7 +520,7 @@ func main() {
 The `nodejs` feature compiles `mbus-ffi` into a Node.js native addon via
 [napi-rs](https://napi.rs/), exposing an idiomatic Promise-based JavaScript
 and TypeScript API. The package source lives in
-[`mbus-ffi/nodejs/`](nodejs/).
+[`mbus-ffi/javascript/`](javascript/).
 
 ```bash
 # Build the native addon with all Modbus features
@@ -528,7 +528,7 @@ cargo build -p mbus-ffi --features nodejs-full
 ```
 
 # Then build the npm package
-cd mbus-ffi/nodejs
+cd mbus-ffi/javascript
 npm install
 npm run build
 ```
