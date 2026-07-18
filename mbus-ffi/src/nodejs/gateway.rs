@@ -78,7 +78,7 @@ impl AsyncTcpGateway {
     /// @param {GatewayConfig} config - Gateway configuration including downstreams and routes.
     /// @param {DownstreamConfig[]} config.downstreams - List of downstream servers.
     /// @param {RouteEntry[]} config.routes - Routing table mapping unit IDs to downstream channels.
-    /// @returns {Promise<AsyncTcpGateway>} A promise that resolves to the running gateway instance.
+    /// @returns {`Promise<AsyncTcpGateway>`} A promise that resolves to the running gateway instance.
     #[napi(factory)]
     pub async fn bind(
         options: GatewayBindOptions,

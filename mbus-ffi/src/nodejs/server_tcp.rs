@@ -1605,7 +1605,7 @@ impl AsyncTcpModbusServer {
     #[doc = "@param {number} options.port The TCP port to listen on."]
     #[doc = "@param {number} options.unitId The Modbus unit ID the server will respond to."]
     #[doc = "@param {ServerHandlers} handlers An object containing callback functions to handle Modbus requests."]
-    #[doc = "@returns {Promise<AsyncTcpModbusServer>} A `Promise` that resolves to a running `AsyncTcpModbusServer` instance."]
+    #[doc = "@returns {`Promise<AsyncTcpModbusServer>`} A `Promise` that resolves to a running `AsyncTcpModbusServer` instance."]
     pub fn bind(
         env: Env,
         options: TcpServerOptions,

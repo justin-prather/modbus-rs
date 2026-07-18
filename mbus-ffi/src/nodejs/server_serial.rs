@@ -166,7 +166,7 @@ impl AsyncSerialModbusServer {
     #[doc = "@param {number} [options.responseTimeoutMs] Optional response timeout in milliseconds. Defaults to 1000."]
     #[doc = ""]
     #[doc = "@param {ServerHandlers} handlers An object containing callback functions to handle Modbus requests."]
-    #[doc = "@returns {Promise<AsyncSerialModbusServer>} A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
+    #[doc = "@returns {`Promise<AsyncSerialModbusServer>`} A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
     #[allow(clippy::missing_transmute_annotations)]
     pub fn bind_rtu(
         env: Env,
@@ -221,7 +221,7 @@ impl AsyncSerialModbusServer {
     #[doc = "@param {number} [options.responseTimeoutMs] Optional response timeout in milliseconds. Defaults to 1000."]
     #[doc = ""]
     #[doc = "@param {ServerHandlers} handlers An object containing callback functions to handle Modbus requests."]
-    #[doc = "@returns {Promise<AsyncSerialModbusServer>} A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
+    #[doc = "@returns {`Promise<AsyncSerialModbusServer>`} A `Promise` that resolves to a running `AsyncSerialModbusServer` instance."]
     #[allow(clippy::missing_transmute_annotations)]
     pub fn bind_ascii(
         env: Env,
